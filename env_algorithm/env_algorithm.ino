@@ -18,7 +18,7 @@
  
 // EXTRA DEFINES
 #define debug                 // if defined debug will show on serial       
-#define TIMER_SECOND 60
+#define TIMER_SECOND 10
 
 // PINS
 #define ID0_PIN 6  // PB2
@@ -45,11 +45,21 @@
 
 MCP_CAN CAN_BUS(CAN_PIN_NSS); // can bus object
 
+long unsigned int rxId;
+unsigned char len = 0;
+unsigned char rxBuf[8];
+char msgString[128];                        // Array to store serial string
+
+
 // SENSORS
 
 
 // EXTRA LINKS
 // https://github.com/GrumpyOldPizza/ArduinoCore-stm32l0/blob/18fb1cc81c6bc91b25e3346595f820985f2267e5/system/STM32L0xx/Source/stm32l0_system.c wakeup manually
+
+bool can_int = false;
+
+byte data[1] = {0x00};
 
 /*
  *  Function:    void init_sensor(int num)
@@ -92,6 +102,9 @@ float get_sensor_data(int num) {
       #ifdef debug
         serial.print("int get_sensor_data(int num) - STM32L0 temp: "); serial.print(stm32_temp); serial.println();
       #endif
+
+      data[0] = int(stm32_temp);
+      
       return stm32_temp;
       break;
     /*default:
@@ -145,7 +158,7 @@ byte id_by_resistors() {
 
 
 
-void CAN_setup(void) {
+void CAN_setup() {
   //CAN_BUS
   if(CAN_BUS.begin(MCP_ANY, CAN_SPEED, CAN_MHZ) == CAN_OK &&
      CAN_BUS.setMode(MCP_NORMAL) == MCP2515_OK ){
@@ -153,20 +166,16 @@ void CAN_setup(void) {
     // enable wakeup on interrupt - for MCP
     CAN_BUS.setSleepWakeup(1);
 
-    /*
-      pinMode(CAN0_INT, INPUT); // Configuring pin for /INT input
-
-      // Enable interrupts for the CAN0_INT pin (should be pin 2 or 3 for Uno and other ATmega328P based boards)
-      attachInterrupt(digitalPinToInterrupt(CAN0_INT), ISR_CAN, FALLING);
-     */
+    pinMode(CAN_PIN_INT, INPUT);
+    attachInterrupt(digitalPinToInterrupt(CAN_PIN_INT), ISR_CAN, FALLING); 
     #ifdef debug
-      serial.println("CAN bus all inited, ready to go!");
+      serial.println("void CAN_setup() - CAN bus all inited, ready to go!");
     #endif
     
   } else {
     
     #ifdef debug
-      serial.println("CAN bus failed to init...");
+      serial.println("void CAN_setup() - CAN bus failed to init...");
       while(1);
     #endif
     
@@ -175,13 +184,12 @@ void CAN_setup(void) {
 
 void sleep_devices(void) {
 
-  // CAN
-
+  serial.println("void sleep_devices(void) - going into sleep");
   // STM32L0
   STM32L0.stop(TIMER_SECOND*1000);
   //research: https://github.com/GrumpyOldPizza/ArduinoCore-stm32l0/blob/18fb1cc81c6bc91b25e3346595f820985f2267e5/system/STM32L0xx/Source/stm32l0_system.c wakeup manually
-  
 }
+
 
 void setup() {
 
@@ -189,13 +197,28 @@ void setup() {
   serial.begin(SERIAL_SPEED);
 
   // Setup CAN bus
-//  CAN_setup();
+  CAN_setup();
 
   init_sensor(L0_TEMP);
+
 }
 
 void loop() {
-  get_sensor_data(L0_TEMP);
+
   sleep_devices();
-  STM32L0.stop(TIMER_SECOND*1000);
+  get_sensor_data(L0_TEMP);
+  
+}
+void ISR_CAN()
+{
+    serial.println("void ISR_CAN() - ISR executed");
+    serial.println(CAN_BUS.readMsgBuf(NULL,NULL,NULL));
+    
+    byte sndStat = CAN_BUS.sendMsgBuf(0x100, 0, 1, data);
+    if(sndStat == CAN_OK){
+      serial.println("void ISR_CAN() - Message Sent Successfully!");
+    } else {
+      serial.println("void ISR_CAN() - Error Sending Message...");
+    }
+  
 }
