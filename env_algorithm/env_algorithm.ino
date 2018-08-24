@@ -1,24 +1,9 @@
-/*
- * 
- * 1. INIT
- * 2. SLEEP
- * 
- * 3.1 INTERRUPT FROM CAN
- *      -> WAKE UP
- *      -> REPORT VALUES TO MASTER
- *      -> 2.
- * 3.2 INTERRUPT FROM TIMER (60s)
- *      -> WAKE UP
- *      -> REPORT VALUES TO MASTER
- *      -> 2.
- * 
- */
 // SENSOR DEFINES
 #define L0_TEMP 0 // STM32L0 internal temperature reading
  
 // EXTRA DEFINES
 #define debug                 // if defined debug will show on serial       
-#define TIMER_SECOND 10
+#define TIMER_SECOND 5        // every TIMER_SECOND it wakes up
 
 // PINS
 #define ID0_PIN 6  // PB2
@@ -37,29 +22,27 @@
 #include <mcp_can_dfs.h>
 #include <SPI.h>
 
-#define CAN_PIN_INT 4         // interrupt pin PB5
-#define CAN_PIN_NSS 9         // chip-select PB12-NSS pin
+#define CAN_PIN_INT 4             // interrupt pin PB5
+#define CAN_PIN_NSS 9             // chip-select PB12-NSS pin
 
-#define CAN_SPEED CAN_500KBPS // CAN_125KBPS
-#define CAN_MHZ   MCP_8MHZ    // MCP_16MHZ, MCP_20MHZ
+#define CAN_SPEED CAN_500KBPS     // CAN_125KBPS
+#define CAN_MHZ   MCP_8MHZ        // MCP_16MHZ, MCP_20MHZ
 
-MCP_CAN CAN_BUS(CAN_PIN_NSS); // can bus object
+MCP_CAN CAN_BUS(CAN_PIN_NSS);     // can bus object
 
-long unsigned int rxId;
-unsigned char len = 0;
-unsigned char rxBuf[8];
-char msgString[128];                        // Array to store serial string
+bool send_via_int = false;        // flag to send via the interrupt
+bool exec_int_can = true;         // execute the interrupt can
 
-
+int data_index_coloumn = 0;       // data coloumn index 
+int data_index_row = 0;           // data row index
 // SENSORS
 
 
 // EXTRA LINKS
 // https://github.com/GrumpyOldPizza/ArduinoCore-stm32l0/blob/18fb1cc81c6bc91b25e3346595f820985f2267e5/system/STM32L0xx/Source/stm32l0_system.c wakeup manually
 
-bool can_int = false;
-
-byte data[1] = {0x00};
+// store sensor data
+byte data[5][8] = {};
 
 /*
  *  Function:    void init_sensor(int num)
@@ -91,27 +74,47 @@ bool init_sensor(int num) {
  *  Parameter:   int num - the number of the sensor
  *  Description: return data from the sensor
  */
-float get_sensor_data(int num) {
+void get_sensor_data(int num) {
   
   #ifdef debug
     serial.print("int get_sensor_data(int num) - Selecting sensor number: "); serial.print(num); serial.println();
   #endif
   switch(num) {
     case 0:
-      float stm32_temp = STM32L0.getTemperature();
+      int stm32_temp = int(STM32L0.getTemperature());
       #ifdef debug
         serial.print("int get_sensor_data(int num) - STM32L0 temp: "); serial.print(stm32_temp); serial.println();
       #endif
 
-      data[0] = int(stm32_temp);
-      
-      return stm32_temp;
-      break;
-    /*default:
+      // put it into the newest coloumn and row
+      data[data_index_coloumn][data_index_row] = stm32_temp;
+      data_index_row++;                                               // increment the row 
+
+      // if the row is overflown
+      if(data_index_row > 7) {
+        data_index_coloumn++;                                         // go to the next coloumn
+        data_index_row = 0;                                           // the beginning of the coloumn
+      }
+
       #ifdef debug
-        serial.println("int get_sensor_data(int num) - No sensor detected for init");
-      #endif 
-      return 0;*/
+        // LOGGING
+        serial.println("--------------------");
+        serial.print("COL: ");serial.println(data_index_coloumn);
+        serial.print("ROW: ");serial.println(data_index_row);
+        serial.println("--------------------");
+  
+        // goes through all the data (coloumn and row)
+        for(int j=0; j<data_index_coloumn+1; j++) {
+          serial.print("COL: ");serial.print(j);serial.print(" ROW: ");
+          for(int i=0; i<8; i++) {
+            serial.print(data[j][i]);serial.print("|");
+          }
+          serial.println();
+        }
+        serial.println();
+        serial.println("--------------------");
+        #endif
+      break;
   }
   
 }
@@ -166,6 +169,7 @@ void CAN_setup() {
     // enable wakeup on interrupt - for MCP
     CAN_BUS.setSleepWakeup(1);
 
+    // can interrupt pins setup
     pinMode(CAN_PIN_INT, INPUT);
     attachInterrupt(digitalPinToInterrupt(CAN_PIN_INT), ISR_CAN, FALLING); 
     #ifdef debug
@@ -184,7 +188,9 @@ void CAN_setup() {
 
 void sleep_devices(void) {
 
-  serial.println("void sleep_devices(void) - going into sleep");
+  #ifdef debug
+    serial.println("void sleep_devices(void) - going into sleep");
+  #endif
   // STM32L0
   STM32L0.stop(TIMER_SECOND*1000);
   //research: https://github.com/GrumpyOldPizza/ArduinoCore-stm32l0/blob/18fb1cc81c6bc91b25e3346595f820985f2267e5/system/STM32L0xx/Source/stm32l0_system.c wakeup manually
@@ -205,20 +211,60 @@ void setup() {
 
 void loop() {
 
+  // if the can interrupt has been set
+  if(send_via_int) {
+    int num_end = 0;
+    
+    exec_int_can = false;         // execute to false to not have mutliple exec
+
+
+    get_sensor_data(L0_TEMP);     // get sensor data
+
+    // data_begin so that the master knows how many coloumns to expect
+    byte data_begin[1]; data_begin[0] = data_index_coloumn;
+    byte sndStat;
+
+    // send coloumn data
+    sndStat = CAN_BUS.sendMsgBuf(0x100, 0, 1, data_begin); if(sndStat == CAN_OK){ serial.println("void loop() - Message Sent Successfully!"); } else { serial.println("void loop() - Error Sending Message..."); }
+
+    // loop through the coloumns
+    for(int i=0; i < data_index_coloumn+1; i++) {
+      // if it is not a full row (not 8bits) send as many as avaible (data_index_row)
+      if(i == data_index_coloumn) {
+        sndStat = CAN_BUS.sendMsgBuf(0x100, 0, data_index_row, data[i]); if(sndStat == CAN_OK){ serial.println("void loop() - Message Sent Successfully!"); } else { serial.println("void loop() - Error Sending Message..."); }
+      }else {
+        // 8bits available send all 8
+        sndStat = CAN_BUS.sendMsgBuf(0x100, 0, 8, data[i]); if(sndStat == CAN_OK){ serial.println("void loop() - Message Sent Successfully!"); } else { serial.println("void loop() - Error Sending Message..."); }
+      }
+    }
+
+    // clear array
+    memset(data, 0, sizeof(data));
+    data_index_coloumn = 0;       // reset coloumn
+    data_index_row = 0;           // reset row
+    send_via_int = false;         // clear the interrupt flag
+    exec_int_can = true;          // allow interrupt to be exec
+  }
+  
   sleep_devices();
   get_sensor_data(L0_TEMP);
   
 }
 void ISR_CAN()
 {
+  // wakeup the stm32l0
+  STM32L0.wakeup();
+
+  // if we can execute via interrupt
+  if(exec_int_can) {
     serial.println("void ISR_CAN() - ISR executed");
+
+    // flag to send back to master
+    send_via_int = true;
+
+    // to clear and set the interrupt flag
     serial.println(CAN_BUS.readMsgBuf(NULL,NULL,NULL));
-    
-    byte sndStat = CAN_BUS.sendMsgBuf(0x100, 0, 1, data);
-    if(sndStat == CAN_OK){
-      serial.println("void ISR_CAN() - Message Sent Successfully!");
-    } else {
-      serial.println("void ISR_CAN() - Error Sending Message...");
-    }
-  
+  } else {
+    serial.println("void ISR_CAN() - received but not exec");
+  }
 }
