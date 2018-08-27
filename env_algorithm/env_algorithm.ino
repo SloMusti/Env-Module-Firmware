@@ -1,9 +1,10 @@
 // SENSOR DEFINES
 #define L0_TEMP 0 // STM32L0 internal temperature reading
+#define L0_VDD  1 // STM32L0 internal VCC ADC
  
 // EXTRA DEFINES
 #define debug                 // if defined debug will show on serial       
-#define TIMER_SECOND 5        // every TIMER_SECOND it wakes up
+#define TIMER_SECOND 60        // every TIMER_SECOND it wakes up
 
 // PINS
 #define ID0_PIN 6  // PB2
@@ -25,6 +26,8 @@
 #define CAN_PIN_INT 4             // interrupt pin PB5
 #define CAN_PIN_NSS 9             // chip-select PB12-NSS pin
 
+#define CAN_ID 0x100
+
 #define CAN_SPEED CAN_500KBPS     // CAN_125KBPS
 #define CAN_MHZ   MCP_8MHZ        // MCP_16MHZ, MCP_20MHZ
 
@@ -32,9 +35,14 @@ MCP_CAN CAN_BUS(CAN_PIN_NSS);     // can bus object
 
 bool send_via_int = false;        // flag to send via the interrupt
 bool exec_int_can = true;         // execute the interrupt can
+bool not_my_id = false;       
 
-int data_index_coloumn = 0;       // data coloumn index 
-int data_index_row = 0;           // data row index
+const int number_of_sensors = 2;        // how many sensors are there
+
+// index coloumn                        index row 
+int data_index_coloumn[number_of_sensors];
+int data_index_row[number_of_sensors];   
+
 // SENSORS
 
 
@@ -42,7 +50,9 @@ int data_index_row = 0;           // data row index
 // https://github.com/GrumpyOldPizza/ArduinoCore-stm32l0/blob/18fb1cc81c6bc91b25e3346595f820985f2267e5/system/STM32L0xx/Source/stm32l0_system.c wakeup manually
 
 // store sensor data
-byte data[5][8] = {};
+// data_x[      sensors    ][vars][x*8bits][8 bits]
+byte data[number_of_sensors][  4 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
+bool init_worked[number_of_sensors];                  // check if it has inited correctly 
 
 /*
  *  Function:    void init_sensor(int num)
@@ -54,19 +64,28 @@ bool init_sensor(int num) {
   #ifdef debug
     serial.print("void select_sensor(int num) - Selecting sensor number: "); serial.print(num); serial.println();
   #endif
-  switch(num) {
-    case L0_TEMP:
-      // nothing to init
+                      
+  if(num == L0_TEMP) {
+    #ifdef debug
       serial.println("void select_sensor(int num) - L0_TEMP inited");
-      return true;
-      break;
-    default:
-      #ifdef debug
-        serial.println("void select_sensor(int num) - No sensor detected for init");
-      #endif 
-      return false;
-      break;
+    #endif 
+    
+    init_worked[L0_TEMP] = true;
+    return true;
+  } else if(num == L0_VDD) {
+    #ifdef debug
+      serial.println("void select_sensor(int num) - L0_VDD inited");
+    #endif
+
+    init_worked[L0_VDD] = true;
+    return true;
+  } else {
+    #ifdef debug
+      serial.println("void select_sensor(int num) - that number (ID) of a sensor doesn't excist");
+    #endif
+    return false;
   }
+  
 }
 
 /*
@@ -79,44 +98,35 @@ void get_sensor_data(int num) {
   #ifdef debug
     serial.print("int get_sensor_data(int num) - Selecting sensor number: "); serial.print(num); serial.println();
   #endif
-  switch(num) {
-    case 0:
-      int stm32_temp = int(STM32L0.getTemperature());
-      #ifdef debug
-        serial.print("int get_sensor_data(int num) - STM32L0 temp: "); serial.print(stm32_temp); serial.println();
-      #endif
 
-      // put it into the newest coloumn and row
-      data[data_index_coloumn][data_index_row] = stm32_temp;
-      data_index_row++;                                               // increment the row 
-
-      // if the row is overflown
-      if(data_index_row > 7) {
-        data_index_coloumn++;                                         // go to the next coloumn
-        data_index_row = 0;                                           // the beginning of the coloumn
-      }
-
-      #ifdef debug
-        // LOGGING
-        serial.println("--------------------");
-        serial.print("COL: ");serial.println(data_index_coloumn);
-        serial.print("ROW: ");serial.println(data_index_row);
-        serial.println("--------------------");
-  
-        // goes through all the data (coloumn and row)
-        for(int j=0; j<data_index_coloumn+1; j++) {
-          serial.print("COL: ");serial.print(j);serial.print(" ROW: ");
-          for(int i=0; i<8; i++) {
-            serial.print(data[j][i]);serial.print("|");
-          }
-          serial.println();
-        }
-        serial.println();
-        serial.println("--------------------");
+  // inited = true
+  if(init_worked[num] == true) {
+    if(num == L0_TEMP) {
+      
+        int stm32_temp = int(STM32L0.getTemperature());
+        
+        #ifdef debug
+          serial.print("int get_sensor_data(int num) - STM32L0 temp: "); serial.print(stm32_temp); serial.println();
         #endif
-      break;
+        
+    } else if(num == L0_VDD) {
+      
+        float stm32_vdd = STM32L0.getVDDA();
+        
+        #ifdef debug
+          serial.print("int get_sensor_data(int num) - STM32L0 VDD: "); serial.print(stm32_vdd); serial.println();
+        #endif
+        
+    } else {
+      #ifdef debug
+        serial.println("int get_sensor_data(int num) - that number (ID) of a sensor doesn't excist");
+      #endif
+    }
+  } else {
+    #ifdef debug
+      serial.println("int get_sensor_data(int num) - the sensor did not init in the init section");
+    #endif
   }
-  
 }
 
 /*
@@ -196,7 +206,6 @@ void sleep_devices(void) {
   //research: https://github.com/GrumpyOldPizza/ArduinoCore-stm32l0/blob/18fb1cc81c6bc91b25e3346595f820985f2267e5/system/STM32L0xx/Source/stm32l0_system.c wakeup manually
 }
 
-
 void setup() {
 
   // Setup serial
@@ -205,7 +214,9 @@ void setup() {
   // Setup CAN bus
   CAN_setup();
 
-  init_sensor(L0_TEMP);
+  for(int sensor=0; sensor < number_of_sensors; sensor++) {
+    init_sensor(sensor);
+  }
 
 }
 
@@ -217,11 +228,13 @@ void loop() {
     
     exec_int_can = false;         // execute to false to not have mutliple exec
 
-
-    get_sensor_data(L0_TEMP);     // get sensor data
+    // loop through the sensors and get data 
+    for(int sensor=0; sensor < number_of_sensors; sensor++) {
+      get_sensor_data(sensor);
+    }
 
     // data_begin so that the master knows how many coloumns to expect
-    byte data_begin[1]; data_begin[0] = data_index_coloumn;
+ /*  byte data_begin[1]; data_begin[0] = data_index_coloumn;
     byte sndStat;
 
     // send coloumn data
@@ -239,32 +252,68 @@ void loop() {
     }
 
     // clear array
-    memset(data, 0, sizeof(data));
     data_index_coloumn = 0;       // reset coloumn
-    data_index_row = 0;           // reset row
+    data_index_row = 0;           // reset row*/
+
+    memset(data, 0, sizeof(data));
     send_via_int = false;         // clear the interrupt flag
     exec_int_can = true;          // allow interrupt to be exec
-  }
-  
-  sleep_devices();
-  get_sensor_data(L0_TEMP);
-  
+  } else {
+    // not_my_id must be false because we only execute when we read our ID
+    // send_via_int must be false so that we don't execute two times
+    if(not_my_id == false && send_via_int == false) {
+      sleep_devices();
+      
+      if(not_my_id == false && send_via_int == false) {
+        // loop through the sensors and get data
+        for(int sensor=0; sensor < number_of_sensors; sensor++) {
+          get_sensor_data(sensor);
+        }
+        not_my_id = false;
+      }
+      
+      not_my_id = false;
+    }
+  }  
 }
+
+// used by ISR_CAN
+long unsigned int rxId;
+
 void ISR_CAN()
 {
   // wakeup the stm32l0
   STM32L0.wakeup();
-
+  
   // if we can execute via interrupt
   if(exec_int_can) {
-    serial.println("void ISR_CAN() - ISR executed");
 
-    // flag to send back to master
-    send_via_int = true;
+    #ifdef debug
+      serial.println("void ISR_CAN() - ISR executed");
+    #endif
 
-    // to clear and set the interrupt flag
-    serial.println(CAN_BUS.readMsgBuf(NULL,NULL,NULL));
+    // read the id and to clear the interrupt flag
+    CAN_BUS.readMsgBuf(&rxId,NULL,NULL);
+    
+    #ifdef debug
+      serial.print("ID: 0x");
+      serial.println(rxId, HEX);
+    #endif
+
+    // if we are in the id spectrum (if our ID is 0x101 then 0x101 will pass, 0x201 will not )
+    if((CAN_ID & rxId) == int(CAN_ID)) {
+      send_via_int = true;                                            // we can send by interrupt
+      not_my_id = false;                                              // it is our id
+    } else {
+      #ifdef debug
+        serial.println("ISR_CAN() - not my ID");serial.println();
+      #endif
+      send_via_int = false;                                           // do not send!
+      not_my_id = true;                                               // not our ID
+    }
+
   } else {
     serial.println("void ISR_CAN() - received but not exec");
   }
+  
 }
