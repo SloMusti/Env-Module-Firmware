@@ -1,6 +1,8 @@
 # Env-Module Firmware
 This repo contains the firmware for the [Environmental board](https://github.com/IRNAS/environmental-module-hardware) board.
 
+Under heavy development!
+
 ## Hardware Support
 - MCU:  CMWX1ZZABZ-091 LoRa®/Sigfox™ module (Murata)
 - CAN: MCP25625 (integrated transiver)
