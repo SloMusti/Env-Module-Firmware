@@ -1,9 +1,19 @@
+
+
 // SENSOR DEFINES
-#define L0 0                        // STM32L0 
-#define L0_CANID 0x101              // the ID through CAN
+#define L0_ID 0                        // STM32L0 
+#define L0_CANID 0x101                // the ID through CAN
 #define L0_VAR_NUM 2
 
-const int number_of_sensors = 1;    // how many sensors are there
+#define TSL2561_ID 1
+#define TSL2561_CANID 0x102
+#define TSL2561_VAR_NUM 3
+
+#define BME280_ID 2
+#define BME280_CANID 0x103
+#define BME280_VAR_NUM 3
+
+const int number_of_sensors = 3;    // how many sensors are there
 
  
 // EXTRA DEFINES
@@ -47,8 +57,28 @@ long unsigned int CAN_RXID;                   // used by ISR_CAN
 int data_index_coloumn[number_of_sensors];    // coloumn array
 int data_index_row[number_of_sensors];        // row array
 bool data_coloumn_max[number_of_sensors];     // max coloumn value 
+int shifted_first;
+int shifted_second;
+int shifted_third;
+int shifted_fourth;
+int old_row_index;
 
 // SENSORS
+#include <Wire.h>
+
+/**********************************************************************************/
+//                               LUX SENSOR TSL2561                               //
+#include "TSL2561.h" 
+// The address will be different depending on whether you let
+// the ADDR pin float (addr 0x39), or tie it to ground or vcc. In those cases
+// use TSL2561_ADDR_LOW (0x29) or TSL2561_ADDR_HIGH (0x49) respectively
+TSL2561 _TSL2561(TSL2561_ADDR_FLOAT); 
+
+/**********************************************************************************/
+//                                      BME280                                   //
+#include "BME280.h"
+/* A BME280 object with I2C address 0x76 (SDO to GND) */
+BME280 _BME280(Wire,0x76);
 
 // store sensor data
 // data_x[      sensors    ][vars][x*8bits][8 bits]
@@ -89,19 +119,58 @@ bool init_sensor(int num) {
     serial.print("void select_sensor(int num) - Selecting sensor number: "); serial.print(num); serial.println();
   #endif*/
                       
-  if(num == L0) {
+  if(num == L0_ID) {
     #ifdef debug
-      serial.println("void select_sensor(int num) - L0 MCU inited");
+      serial.println("void init_sensor(int num) - L0 MCU inited");
     #endif 
 
     // set the init var to true
-    init_worked[L0] = true;
+    init_worked[L0_ID] = true;
     return true;
+  } else if(num == TSL2561_ID) {
+
+    if(_TSL2561.begin()) {
+      #ifdef debug
+        serial.println("void init_sensor(int num) - TSL2561 inited");
+      #endif
+    } else {
+      #ifdef debug
+        serial.println("void init_sensor(int num) - TSL2561 not inited!!");
+      #endif
+      init_worked[TSL2561_ID] = false;
+      return false;
+    }
+
+    //_TSL2561.setGain(TSL2561_GAIN_0X);         // set no gain (for bright situtations)
+    _TSL2561.setGain(TSL2561_GAIN_16X);      // set 16x gain (for dim situations)
+
+    _TSL2561.setTiming(TSL2561_INTEGRATIONTIME_13MS);  // shortest integration time (bright light)
+    //_TSL2561.setTiming(TSL2561_INTEGRATIONTIME_101MS);  // medium integration time (medium light)
+    //_TSL2561.setTiming(TSL2561_INTEGRATIONTIME_402MS);  // longest integration time (dim light)
+
+    // set the init var to true
+    init_worked[TSL2561_ID] = true;
+    return true;
+  } else if(num == BME280_ID) {
+    if(_BME280.begin() < 0) {
+      #ifdef debug
+        serial.println("void init_sensor(int num) - BME280 not inited!!");
+      #endif
+      return false;
+    } else {
+      #ifdef debug
+        serial.println("void init_sensor(int num) - BME280 inited");
+      #endif  
+
+      init_worked[BME280_ID] = true;
+      
+      return true;
+    }
   } else {
     
     // we have not configured this ID of sensor
     #ifdef debug
-      serial.println("void select_sensor(int num) - that number (ID) of a sensor doesn't excist");
+      serial.println("void init_sensor(int num) - that number (ID) of a sensor doesn't excist");
     #endif
     return false;
     
@@ -123,7 +192,7 @@ void get_sensor_data(int num) {
   if(init_worked[num] == true) {
 
     // L0 SENSOR 
-    if(num == L0) {
+    if(num == L0_ID) {
         
         int stm32_temp_variable_id  = 0;                        // so we know which variable we use
         float stm32_temp = STM32L0.getTemperature();            // get the value
@@ -136,8 +205,8 @@ void get_sensor_data(int num) {
           serial.print("int get_sensor_data(int num) - STM32L0 VDD: ");  serial.print(stm32_vdd); serial.println();
         #endif
 
-        int shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
-        int shifted_second = data_index_row[num] + 1;       // as we are sending float the second value (decimal) is shifted +1
+        shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
+        shifted_second = data_index_row[num] + 1;       // as we are sending float the second value (decimal) is shifted +1
 
         /*
          * 
@@ -181,6 +250,125 @@ void get_sensor_data(int num) {
             data_coloumn_max[num] = 1;  
           } 
         }
+    } else if(num == TSL2561_ID) {
+
+      int tsl_visible_id          = 0;
+      uint16_t tsl_visible        = _TSL2561.getLuminosity(TSL2561_VISIBLE);          // get the visible variable
+
+      int tsl_fullspectrum_id     = 1;
+      uint16_t tsl_fullspectrum   = _TSL2561.getLuminosity(TSL2561_FULLSPECTRUM);     // get the full spectrum
+      
+      int tsl_infrared_id         = 2;
+      uint16_t tsl_infrared       = _TSL2561.getLuminosity(TSL2561_INFRARED);         // get the infrared
+
+      #ifdef debug
+        serial.print("int get_sensor_data(int num) - VISIBLE:  ");serial.println(tsl_visible);
+        serial.print("int get_sensor_data(int num) - FULLSPEC: ");serial.println(tsl_fullspectrum);
+        serial.print("int get_sensor_data(int num) - INFRARED: ");serial.println(tsl_infrared);
+      #endif
+
+      shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
+      shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
+
+      // setting the visible variable
+      data[num][tsl_visible_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = (uint8_t)((tsl_visible & 0xFF00) >> 8);             // first element
+      data[num][tsl_visible_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = (uint8_t)(tsl_visible & 0x00FF);                   // second element (decimal)
+
+      // setting the fullspectrum  variable
+      data[num][tsl_fullspectrum_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = (uint8_t)((tsl_fullspectrum & 0xFF00) >> 8);   // first element
+      data[num][tsl_fullspectrum_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = (uint8_t)(tsl_fullspectrum & 0x00FF);         // second element (decimal)
+
+      // setting the infrared  variable
+      data[num][tsl_infrared_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = (uint8_t)((tsl_infrared & 0xFF00) >> 8);           // first element
+      data[num][tsl_infrared_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = (uint8_t)(tsl_infrared & 0x00FF);                 // second element (decimal)
+        
+      // go onto the next row
+      data_index_row[num]++;
+
+      // if we are out of index (more than 3 because we can only fit 4 data points (2x4))
+      // !! for 8 data points 3->7
+      if(data_index_row[num] > 3) {
+        data_index_row[num] = 0;        // go back to null
+        data_index_coloumn[num]++;      // go to the next coloumn
+          
+        // if we are overflowing
+        if(data_index_coloumn[num] > 7) {
+          data_index_coloumn[num] = 0;  // go back 
+          data_coloumn_max[num] = 1;  
+        } 
+      }
+    } else if(num == BME280_ID) {
+
+      _BME280.readSensor();
+
+      int bme_pressure_id     = 0;
+      float bme_pressure      = _BME280.getPressure_Pa();
+      
+      int bme_temperature_id  = 1;
+      float bme_temperature   = _BME280.getTemperature_C();
+
+      int bme_humidity_id     = 2;
+      float bme_humidity      = _BME280.getHumidity_RH();
+
+      #ifdef debug
+        serial.print("int get_sensor_data(int num) - PRESSURE:  ");serial.println(bme_pressure,8);
+        serial.print("int get_sensor_data(int num) - TEMPERATURE: ");serial.println(bme_temperature);
+        serial.print("int get_sensor_data(int num) - HUMIDITY: ");serial.println(bme_humidity);
+      #endif
+
+      shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
+      shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
+      shifted_third  = data_index_row[num] + 2;
+      shifted_fourth = data_index_row[num] + 3;
+      
+      // pressure
+      byte one_pressure = int(bme_pressure / 1000);
+      byte two_pressure = int(int(bme_pressure - (one_pressure * 1000)) / 10);
+      byte three_pressure = int((bme_pressure - (one_pressure * 1000 + two_pressure * 10)) * 10);
+      byte four_pressure = int(((bme_pressure - one_pressure*1000) * 1000) - (two_pressure*10000) - (three_pressure * 100));
+
+      old_row_index = data_index_row[num];
+
+      if(data_index_row[num] == 0 || data_index_row[num] == 1) {
+        
+        if(data_index_row[num] == 0) {
+          data_index_row[num] = 0;
+        } else if(data_index_row[num] == 1) {
+          data_index_row[num] = data_index_row[num] + 2;
+        }
+        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]  = one_pressure;
+        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = two_pressure;
+        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_third]  = three_pressure;
+        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_fourth] = four_pressure;
+
+        data_index_row[num] = old_row_index;
+      } else if(data_index_row[num] > 1) {
+        
+      }
+
+      // temperature
+      data[num][bme_temperature_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(bme_temperature);                                  // first element
+      data[num][bme_temperature_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((bme_temperature - int(bme_temperature)) * 100);     // second element (decimal)
+      
+      // humidity
+      data[num][bme_humidity_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(bme_humidity);                                     // first element
+      data[num][bme_humidity_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((bme_humidity - int(bme_humidity)) * 100);        // second element (decimal)
+
+      // go onto the next row
+      data_index_row[num]++;
+
+      // if we are out of index (more than 3 because we can only fit 4 data points (2x4))
+      // !! for 8 data points 1->7
+      if(data_index_row[num] > 3) {
+        data_index_row[num] = 0;        // go back to null
+        data_index_coloumn[num]++;      // go to the next coloumn
+          
+        // if we are overflowing
+        if(data_index_coloumn[num] > 7) {
+          data_index_coloumn[num] = 0;  // go back 
+          data_coloumn_max[num] = 1;  
+        } 
+      }
     } else {
       #ifdef debug
         serial.println("int get_sensor_data(int num) - that number (ID) of a sensor doesn't excist");
@@ -293,6 +481,7 @@ void setup() {
   for(int sensor=0; sensor < number_of_sensors; sensor++) {
     init_sensor(sensor);
   }
+
 }
 
 void loop() {
@@ -309,15 +498,16 @@ void loop() {
     // choose the sensor
     switch(CAN_RXID) {
       case L0_CANID:
+      
         #ifdef debug
           serial.println("void loop() - CAN_RXID is L0");
         #endif
 
         // L0 I choose you!
-        chosen_sensor = L0;
+        chosen_sensor = L0_ID;
 
         // get the sensor data
-        get_sensor_data(L0);
+        get_sensor_data(L0_ID);
 
         // check if we had a max value (8 coloumns filled)
         if(data_coloumn_max[chosen_sensor] == true) {
@@ -327,6 +517,7 @@ void loop() {
 
           // for the for loop below to send all 8
           data_index_coloumn[chosen_sensor] = 7;
+          
         } else { 
           // just paste how many are there 
           data_begin[0] = data_index_coloumn[chosen_sensor]; 
@@ -336,10 +527,48 @@ void loop() {
         data_begin[1] = L0_VAR_NUM;
         
         break;
+      case TSL2561_ID:
+        #ifdef debug
+          serial.println("void loop() - CAN_RXID is TSL2561");
+        #endif
+
+        // TSL2561 I choose you!
+        chosen_sensor = TSL2561_ID;
+
+        // get the sensor data
+        get_sensor_data(TSL2561_ID);
+
+        // check if we had a max value (8 coloumns filled)
+        if(data_coloumn_max[chosen_sensor] == true) {
+
+          // tell master that it should expect 8 coloumns (1+7)
+          data_begin[0]= 7;
+
+          // for the for loop below to send all 8
+          data_index_coloumn[chosen_sensor] = 7;
+          
+        } else { 
+          // just paste how many are there 
+          data_begin[0] = data_index_coloumn[chosen_sensor]; 
+        }
+
+        // number of variables we are using
+        data_begin[1] = TSL2561_VAR_NUM;
+
+        break;
+      
     }
     
     // send coloumn data
-    sndStat = CAN_BUS.sendMsgBuf(CAN_MASTER_ID, 0, 2, data_begin); if(sndStat == CAN_OK){ serial.println("void loop() - Message Sent Successfully!"); } else { serial.println("void loop() - Error Sending Message..."); }
+    sndStat = CAN_BUS.sendMsgBuf(CAN_MASTER_ID, 0, 2, data_begin); if(sndStat == CAN_OK) { 
+      #ifdef debug 
+        serial.println("void loop() - Message Sent Successfully!"); 
+      #endif
+    } else { 
+      #ifdef debug
+        serial.println("void loop() - Error Sending Message..."); 
+      #endif  
+    }
 
     // loop through the variables 
     for(int varz=0; varz<L0_VAR_NUM;varz++) {
@@ -347,10 +576,26 @@ void loop() {
       for(int i=0; i < data_index_coloumn[chosen_sensor]+1; i++) {
         // if it is not a full row (not 8bits) send as many as avaible (data_index_row)
         if(i == data_index_coloumn[chosen_sensor] && data_coloumn_max[chosen_sensor] == 0) {
-          sndStat = CAN_BUS.sendMsgBuf(L0_CANID, 0, data_index_row[chosen_sensor], data[chosen_sensor][varz][i]); if(sndStat == CAN_OK){ serial.println("void loop() - Message Sent Successfully!"); } else { serial.println("void loop() - Error Sending Message..."); }
+          sndStat = CAN_BUS.sendMsgBuf(L0_CANID, 0, data_index_row[chosen_sensor], data[chosen_sensor][varz][i]); if(sndStat == CAN_OK) { 
+            #ifdef debug
+              serial.println("void loop() - Message Sent Successfully!");
+            #endif
+          } else { 
+            #ifdef debug
+              serial.println("void loop() - Error Sending Message..."); 
+            #endif
+          }
         }else {
           // 8bits available, send all 8
-          sndStat = CAN_BUS.sendMsgBuf(L0_CANID, 0, 8,  data[chosen_sensor][varz][i]); if(sndStat == CAN_OK){ serial.println("void loop() - Message Sent Successfully!"); } else { serial.println("void loop() - Error Sending Message..."); }
+          sndStat = CAN_BUS.sendMsgBuf(L0_CANID, 0, 8,  data[chosen_sensor][varz][i]); if(sndStat == CAN_OK) { 
+            #ifdef debug
+              serial.println("void loop() - Message Sent Successfully!"); 
+            #endif
+          } else { 
+            #ifdef debug
+              serial.println("void loop() - Error Sending Message..."); 
+            #endif
+          }
         }
       }
     }
