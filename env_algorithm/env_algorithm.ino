@@ -57,11 +57,13 @@ long unsigned int CAN_RXID;                   // used by ISR_CAN
 int data_index_coloumn[number_of_sensors];    // coloumn array
 int data_index_row[number_of_sensors];        // row array
 bool data_coloumn_max[number_of_sensors];     // max coloumn value 
-int shifted_first;
-int shifted_second;
-int shifted_third;
-int shifted_fourth;
-int old_row_index;
+
+
+int shifted_first;                            // shifted first value
+int shifted_second;                           // shifted second value
+int shifted_third;                            // shifted third value
+int shifted_fourth;                           // shifted fourth value
+int old_row_index;                            // to store the old row index
 
 // SENSORS
 #include <Wire.h>
@@ -129,6 +131,7 @@ bool init_sensor(int num) {
     return true;
   } else if(num == TSL2561_ID) {
 
+    // begin the communication for tsl2561
     if(_TSL2561.begin()) {
       #ifdef debug
         serial.println("void init_sensor(int num) - TSL2561 inited");
@@ -152,6 +155,8 @@ bool init_sensor(int num) {
     init_worked[TSL2561_ID] = true;
     return true;
   } else if(num == BME280_ID) {
+
+    // start the communication with the BME280
     if(_BME280.begin() < 0) {
       #ifdef debug
         serial.println("void init_sensor(int num) - BME280 not inited!!");
@@ -232,8 +237,8 @@ void get_sensor_data(int num) {
         data[num][stm32_temp_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((stm32_temp - int(stm32_temp)) * 100);   // second element (decimal)
         
         // setting the vdd variable
-        data[num][stm32_vdd_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(stm32_vdd);
-        data[num][stm32_vdd_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((stm32_vdd - int(stm32_vdd)) * 100);
+        data[num][stm32_vdd_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(stm32_vdd);                                // first element
+        data[num][stm32_vdd_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((stm32_vdd - int(stm32_vdd)) * 100);      // second element
 
         // go onto the next row
         data_index_row[num]++;
@@ -294,21 +299,22 @@ void get_sensor_data(int num) {
         // if we are overflowing
         if(data_index_coloumn[num] > 7) {
           data_index_coloumn[num] = 0;  // go back 
-          data_coloumn_max[num] = 1;  
+          data_coloumn_max[num] = 1;    // we have overflown the coloumn
         } 
       }
     } else if(num == BME280_ID) {
 
+      // get bme280 sensor data
       _BME280.readSensor();
 
-      int bme_pressure_id     = 0;
-      float bme_pressure      = _BME280.getPressure_Pa();
+      int bme_pressure_id     = 0;                                // id of bme pressure
+      float bme_pressure      = _BME280.getPressure_Pa();         // data of bme pressure
       
-      int bme_temperature_id  = 1;
-      float bme_temperature   = _BME280.getTemperature_C();
+      int bme_temperature_id  = 1;                                // id of bme temperature
+      float bme_temperature   = _BME280.getTemperature_C();       // data of bme temperature
 
-      int bme_humidity_id     = 2;
-      float bme_humidity      = _BME280.getHumidity_RH();
+      int bme_humidity_id     = 2;                                // id of bme humidity
+      float bme_humidity      = _BME280.getHumidity_RH();         // data of bme humidity
 
       #ifdef debug
         serial.print("int get_sensor_data(int num) - PRESSURE:  ");serial.println(bme_pressure,8);
@@ -318,32 +324,43 @@ void get_sensor_data(int num) {
 
       shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
-      shifted_third  = data_index_row[num] + 2;
-      shifted_fourth = data_index_row[num] + 3;
+      shifted_third  = data_index_row[num] + 2;        // as we are sending float the second value (decimal) is shifted +2
+      shifted_fourth = data_index_row[num] + 3;        // as we are sending float the second value (decimal) is shifted +3
       
-      // pressure
-      byte one_pressure = int(bme_pressure / 1000);
-      byte two_pressure = int(int(bme_pressure - (one_pressure * 1000)) / 10);
-      byte three_pressure = int((bme_pressure - (one_pressure * 1000 + two_pressure * 10)) * 10);
-      byte four_pressure = int(((bme_pressure - one_pressure*1000) * 1000) - (two_pressure*10000) - (three_pressure * 100));
+      // pressure EXAMPLE: 100956,167
+      byte one_pressure = int(bme_pressure / 1000);            // 100
+      byte two_pressure = int(int(bme_pressure - (one_pressure * 1000)) / 10);        // 95
+      byte three_pressure = int((bme_pressure - (one_pressure * 1000 + two_pressure * 10)) * 10);       // 61
+      byte four_pressure = int(((bme_pressure - one_pressure*1000) * 1000) - (two_pressure*10000) - (three_pressure * 100));    // 67
 
+      // save the old row index
       old_row_index = data_index_row[num];
 
+      // only on 0 and 1 
       if(data_index_row[num] == 0 || data_index_row[num] == 1) {
-        
+
+        // if it is on the 0th row
         if(data_index_row[num] == 0) {
+
+          // set the index row to 0 (this doesnt even need checking...
           data_index_row[num] = 0;
         } else if(data_index_row[num] == 1) {
+
+          // if we are on the first(second) row we go to the 3rd
           data_index_row[num] = data_index_row[num] + 2;
         }
-        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]  = one_pressure;
-        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = two_pressure;
-        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_third]  = three_pressure;
-        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_fourth] = four_pressure;
 
+        // setting up the data
+        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]  = one_pressure;       // shifted first set the one_pressure
+        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = two_pressure;       // shifted second set the two_pressure
+        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_third]  = three_pressure;     // shifted three set the three_pressure
+        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_fourth] = four_pressure;      // shifted fourth set the four_pressure
+
+        // set back the num index
         data_index_row[num] = old_row_index;
-      } else if(data_index_row[num] > 1) {
         
+      } else if(data_index_row[num] > 1) {
+        // just ignore it
       }
 
       // temperature
@@ -366,7 +383,7 @@ void get_sensor_data(int num) {
         // if we are overflowing
         if(data_index_coloumn[num] > 7) {
           data_index_coloumn[num] = 0;  // go back 
-          data_coloumn_max[num] = 1;  
+          data_coloumn_max[num] = 1;    // we have overflown the coloumn
         } 
       }
     } else {
@@ -624,6 +641,7 @@ void loop() {
         for(int sensor=0; sensor < number_of_sensors; sensor++) {
           get_sensor_data(sensor);
         }
+        
         not_my_id = false;
       }
       
