@@ -226,16 +226,14 @@ void get_sensor_data(int num) {
 
     // L0 SENSOR 
     if(num == L0_ID) {
-        
-        int stm32_temp_variable_id  = 0;                        // so we know which variable we use
-        float stm32_temp = STM32L0.getTemperature();            // get the value
-
-        int stm32_vdd_variable_id   = 1;                        // VAR 1
-        float stm32_vdd = STM32L0.getVDDA();                    // get the value
+        float l0_data[L0_VAR_NUM] = {
+          STM32L0.getTemperature(),              // get the temperature value
+          STM32L0.getVDDA()                       // get the vdda value
+        };
         
         #ifdef debug
-          serial.print("int get_sensor_data(int num) - STM32L0 temp: "); serial.print(stm32_temp); serial.println();
-          serial.print("int get_sensor_data(int num) - STM32L0 VDD: ");  serial.print(stm32_vdd); serial.println();
+          serial.print("int get_sensor_data(int num) - STM32L0 temp: "); serial.println(l0_data[0]); 
+          serial.print("int get_sensor_data(int num) - STM32L0 VDD: ");  serial.println(l0_data[1]); 
         #endif
 
         shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
@@ -260,13 +258,10 @@ void get_sensor_data(int num) {
          * 
          */
 
-        // setting the temperature variable
-        data[num][stm32_temp_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(stm32_temp);                              // first element
-        data[num][stm32_temp_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((stm32_temp - int(stm32_temp)) * 100);   // second element (decimal)
-        
-        // setting the vdd variable
-        data[num][stm32_vdd_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(stm32_vdd);                                // first element
-        data[num][stm32_vdd_variable_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((stm32_vdd - int(stm32_vdd)) * 100);      // second element
+        for(int num_counter=0; num_counter < L0_VAR_NUM; num_counter++) {
+          data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(l0_data[num_counter]);                              // first element
+          data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((l0_data[num_counter] - int(l0_data[num_counter])) * 100);   // second element (decimal)
+        }
 
         // go onto the next row
         data_index_row[num]++;
@@ -285,36 +280,26 @@ void get_sensor_data(int num) {
         }
     } else if(num == TSL2561_ID) {
 
-      int tsl_visible_id          = 0;
-      uint16_t tsl_visible        = _TSL2561.getLuminosity(TSL2561_VISIBLE);          // get the visible variable
-
-      int tsl_fullspectrum_id     = 1;
-      uint16_t tsl_fullspectrum   = _TSL2561.getLuminosity(TSL2561_FULLSPECTRUM);     // get the full spectrum
-      
-      int tsl_infrared_id         = 2;
-      uint16_t tsl_infrared       = _TSL2561.getLuminosity(TSL2561_INFRARED);         // get the infrared
+      uint16_t tsl_data[TSL2561_VAR_NUM] = {
+        _TSL2561.getLuminosity(TSL2561_VISIBLE),             // visible variable
+        _TSL2561.getLuminosity(TSL2561_FULLSPECTRUM),        // full spectrum
+        _TSL2561.getLuminosity(TSL2561_INFRARED)             // get infrared
+       };
 
       #ifdef debug
-        serial.print("int get_sensor_data(int num) - VISIBLE:  ");serial.println(tsl_visible);
-        serial.print("int get_sensor_data(int num) - FULLSPEC: ");serial.println(tsl_fullspectrum);
-        serial.print("int get_sensor_data(int num) - INFRARED: ");serial.println(tsl_infrared);
+        serial.print("int get_sensor_data(int num) - VISIBLE:  ");serial.println(tsl_data[0]);
+        serial.print("int get_sensor_data(int num) - FULLSPEC: ");serial.println(tsl_data[1]);
+        serial.print("int get_sensor_data(int num) - INFRARED: ");serial.println(tsl_data[2]);
       #endif
 
       shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
 
-      // setting the visible variable
-      data[num][tsl_visible_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = (uint8_t)((tsl_visible & 0xFF00) >> 8);             // first element
-      data[num][tsl_visible_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = (uint8_t)(tsl_visible & 0x00FF);                   // second element (decimal)
+      for(int num_counter = 0; num_counter < TSL2561_VAR_NUM; num_counter++) {
+        data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first] = (uint8_t)((tsl_data[num_counter] & 0xFF00) >> 8);             // first element
+        data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second] = (uint8_t)(tsl_data[num_counter] & 0x00FF);                   // second element (decimal)
+      }
 
-      // setting the fullspectrum  variable
-      data[num][tsl_fullspectrum_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = (uint8_t)((tsl_fullspectrum & 0xFF00) >> 8);   // first element
-      data[num][tsl_fullspectrum_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = (uint8_t)(tsl_fullspectrum & 0x00FF);         // second element (decimal)
-
-      // setting the infrared  variable
-      data[num][tsl_infrared_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = (uint8_t)((tsl_infrared & 0xFF00) >> 8);           // first element
-      data[num][tsl_infrared_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = (uint8_t)(tsl_infrared & 0x00FF);                 // second element (decimal)
-        
       // go onto the next row
       data_index_row[num]++;
 
