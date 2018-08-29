@@ -1,19 +1,28 @@
 
 
 // SENSOR DEFINES
-#define L0_ID 0                        // STM32L0 
-#define L0_CANID 0x101                // the ID through CAN
-#define L0_VAR_NUM 2
+#define L0_ID                       0                 // STM32L0 
+#define L0_CANID                    0x101             // the ID through CAN
+#define L0_VAR_NUM                  2                 // we have 2 variables
 
-#define TSL2561_ID 1
-#define TSL2561_CANID 0x102
-#define TSL2561_VAR_NUM 3
+#define TSL2561_ID                  1
+#define TSL2561_CANID               0x102             // the CAN ID of the sensor
+#define TSL2561_VAR_NUM             3                 // we have 3 variables
 
-#define BME280_ID 2
-#define BME280_CANID 0x103
-#define BME280_VAR_NUM 3
+#define BME280_ID                   2                 // ID is 2
+#define BME280_CANID                0x103             // the CAN ID of the sensor
+#define BME280_VAR_NUM              3                 // we have 3 variables
 
-const int number_of_sensors = 3;    // how many sensors are there
+#define BQ34Z100_ID                 3                 // ID is 3
+#define BQ34Z100_CANID              0x104             // the CAN ID of the sensor
+#define BQ34Z100_VAR_NUM            4                 // we have 4 variables
+#define BQ34Z100_SERIESCELLS        3                 // example value CHANGE IT!   Number of series Batteries
+#define BQ34Z100_CELLCAPACITY       8000              // example value CHANGE IT!   Battery capacity in mAh
+#define BQ34Z100_PACKVOLTAGE        12369             // example value CHANGE IT!   Current voltage on the pack in mV (eg 12.369V)
+#define BQ34Z100_APPLIEDCURRENT     1000              // example value CHANGE IT!   Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
+
+
+const int number_of_sensors = 4;    // how many sensors are there
 
  
 // EXTRA DEFINES
@@ -54,10 +63,9 @@ bool not_my_id = false;
        
 long unsigned int CAN_RXID;                   // used by ISR_CAN
 
-int data_index_coloumn[number_of_sensors];    // coloumn array
-int data_index_row[number_of_sensors];        // row array
+int  data_index_coloumn[number_of_sensors];   // coloumn array
+int  data_index_row[number_of_sensors];       // row array
 bool data_coloumn_max[number_of_sensors];     // max coloumn value 
-
 
 int shifted_first;                            // shifted first value
 int shifted_second;                           // shifted second value
@@ -77,10 +85,16 @@ int old_row_index;                            // to store the old row index
 TSL2561 _TSL2561(TSL2561_ADDR_FLOAT); 
 
 /**********************************************************************************/
-//                                      BME280                                   //
+//                                      BME280                                    //
 #include "BME280.h"
 /* A BME280 object with I2C address 0x76 (SDO to GND) */
 BME280 _BME280(Wire,0x76);
+
+/**********************************************************************************/
+//                                      BQ34Z100                                  //
+#include "bq34z100.h"
+bq34z100 _BQ34Z100;
+
 
 // store sensor data
 // data_x[      sensors    ][vars][x*8bits][8 bits]
@@ -171,6 +185,20 @@ bool init_sensor(int num) {
       
       return true;
     }
+  } else if(num == BQ34Z100_ID) {
+    // according to the function the parameters are:
+    //Battery Chemistry -- Number of series Batteries -- Battery capacity in mAh -- Current voltage on the pack in mV (eg 12.369V) -- Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
+    _BQ34Z100.setup(0x101, BQ34Z100_SERIESCELLS, BQ34Z100_CELLCAPACITY, BQ34Z100_PACKVOLTAGE, BQ34Z100_APPLIEDCURRENT);
+    delay(200);
+
+    #ifdef debug
+      serial.println("void init_sensor(int num) - can't check BQ34Z100 if it is inited...");
+      serial.println("void init_sensor(int num) - continuing as inited...");
+    #endif
+
+    init_worked[BQ34Z100_ID] = true;
+  
+    return true;
   } else {
     
     // we have not configured this ID of sensor
@@ -386,6 +414,49 @@ void get_sensor_data(int num) {
           data_coloumn_max[num] = 1;    // we have overflown the coloumn
         } 
       }
+    } else if(num == BQ34Z100_ID) {
+
+       // data of bq (/10 because of return of in x10 format)
+       int bq_data[BQ34Z100_VAR_NUM] = {
+        int(_BQ34Z100.getCurrent() / 10),       // current
+        int(_BQ34Z100.getVoltage() / 10),       // voltage
+        int(_BQ34Z100.getCapacity() / 10),      // capacity
+        int(_BQ34Z100.getStatus())              // status
+       };
+
+       #ifdef debug
+        serial.print("int get_sensor_data(int num) - CURRENT:  ");  serial.println(bq_data[0]);
+        serial.print("int get_sensor_data(int num) - VOLTAGE: ");   serial.println(bq_data[1]);
+        serial.print("int get_sensor_data(int num) - CAPACITY: ");  serial.println(bq_data[2]);
+        serial.print("int get_sensor_data(int num) - STATUS: ");    serial.println(bq_data[3]);
+       #endif
+
+       shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
+       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
+
+       // to save memory we loop through the data and set it to memory
+       // we can use this because we are dividing all elements into first and second element
+       for(int num_counter=0; num_counter < BQ34Z100_VAR_NUM; num_counter++) {
+        data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(bq_data[num_counter]);                                  // first element
+        data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((bq_data[num_counter] - int(bq_data[num_counter])) * 100);       // second element (decimal)
+       }
+
+       // go onto the next row
+       data_index_row[num]++;
+
+       // if we are out of index (more than 3 because we can only fit 4 data points (2x4))
+       // !! for 8 data points 3->7
+       if(data_index_row[num] > 3) {
+        data_index_row[num] = 0;        // go back to null
+        data_index_coloumn[num]++;      // go to the next coloumn
+          
+        // if we are overflowing
+        if(data_index_coloumn[num] > 7) {
+          data_index_coloumn[num] = 0;  // go back 
+          data_coloumn_max[num] = 1;  
+        } 
+       }
+
     } else {
       #ifdef debug
         serial.println("int get_sensor_data(int num) - that number (ID) of a sensor doesn't excist");
@@ -526,25 +597,12 @@ void loop() {
         // get the sensor data
         get_sensor_data(L0_ID);
 
-        // check if we had a max value (8 coloumns filled)
-        if(data_coloumn_max[chosen_sensor] == true) {
-
-          // tell master that it should expect 8 coloumns (1+7)
-          data_begin[0]= 7;
-
-          // for the for loop below to send all 8
-          data_index_coloumn[chosen_sensor] = 7;
-          
-        } else { 
-          // just paste how many are there 
-          data_begin[0] = data_index_coloumn[chosen_sensor]; 
-        }
-
         // number of variables we are using
         data_begin[1] = L0_VAR_NUM;
         
         break;
       case TSL2561_ID:
+      
         #ifdef debug
           serial.println("void loop() - CAN_RXID is TSL2561");
         #endif
@@ -555,24 +613,42 @@ void loop() {
         // get the sensor data
         get_sensor_data(TSL2561_ID);
 
-        // check if we had a max value (8 coloumns filled)
-        if(data_coloumn_max[chosen_sensor] == true) {
-
-          // tell master that it should expect 8 coloumns (1+7)
-          data_begin[0]= 7;
-
-          // for the for loop below to send all 8
-          data_index_coloumn[chosen_sensor] = 7;
-          
-        } else { 
-          // just paste how many are there 
-          data_begin[0] = data_index_coloumn[chosen_sensor]; 
-        }
-
         // number of variables we are using
         data_begin[1] = TSL2561_VAR_NUM;
 
         break;
+      case BQ34Z100_ID:
+      
+        #ifdef debug
+          serial.println("void loop() - CAN_RXID is BQ34Z100");
+        #endif
+
+        // BQ34Z100 I choose you!
+        chosen_sensor = BQ34Z100_ID;
+
+        // get sensor data
+        get_sensor_data(BQ34Z100_ID);
+
+        // number of variables we are using
+        data_begin[1] = BQ34Z100_VAR_NUM;
+        
+        break;
+      
+    }
+
+    // check if we had a max value (8 coloumns filled)
+    if(data_coloumn_max[chosen_sensor] == true) {
+
+      // tell master that it should expect 8 coloumns (1+7)
+      data_begin[0]= 7;
+
+      // for the for loop below to send all 8
+      data_index_coloumn[chosen_sensor] = 7;
+          
+    } else { 
+      
+      // just paste how many are there 
+      data_begin[0] = data_index_coloumn[chosen_sensor]; 
       
     }
     
