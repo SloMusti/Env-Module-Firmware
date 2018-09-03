@@ -121,7 +121,7 @@ bq34z100 _BQ34Z100;
 */
 // store sensor data
 // data_x[      sensors    ][vars][x*8bits][8 bits]
-byte data[number_of_sensors][  4 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
+byte data[number_of_sensors][  3 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
 bool init_worked[number_of_sensors];                  // check if it has inited correctly 
 
 /*
@@ -140,7 +140,69 @@ float mapf(float x, float in_min, float in_max, float out_min, float out_max)
  *  Parameter: x
  */
 void print_data() {
+  
   serial.println("************************************************");
+  serial.println("SENSOR L0");
+  for(int j=0; j< L0_VAR_NUM; j++) {
+    serial.print("VAR NUM: "); serial.println(j);
+    for(int d=0; d<8; d++) {
+      serial.print("DATA[");serial.print(d);serial.print("]: ");
+      for(int c=0; c<8; c++) {
+        serial.print(data[0][j][d][c]);serial.print("|");
+      }
+    }
+  }
+  serial.println();
+  
+  serial.println("SENSOR TSL2561");
+  for(int j=0; j< TSL2561_VAR_NUM; j++) {
+    serial.print("VAR NUM: "); serial.println(j);
+    for(int d=0; d<8; d++) {
+      serial.print("DATA[");serial.print(d);serial.print("]: ");
+      for(int c=0; c<8; c++) {
+        serial.print(data[1][j][d][c]);serial.print("|");
+      }
+    }
+  }
+  serial.println();
+  
+  serial.println("SENSOR BME280");
+  for(int j=0; j<BME280_VAR_NUM; j++) {
+    serial.print("VAR NUM: "); serial.println(j);
+    for(int d=0; d<8; d++) {
+      serial.print("DATA[");serial.print(d);serial.print("]: ");
+      for(int c=0; c<8; c++) {
+        serial.print(data[2][j][d][c]);serial.print("|");
+      }
+    }
+  }
+  serial.println();
+  
+  serial.println("SENSOR ANEMOMETER");
+  for(int j=0; j<ANEMOMETER_VAR_NUM; j++) {
+    serial.print("VAR NUM: "); serial.println(j);
+    for(int d=0; d<8; d++) {
+      serial.print("DATA[");serial.print(d);serial.print("]: ");
+      for(int c=0; c<8; c++) {
+        serial.print(data[3][j][d][c]);serial.print("|");
+      }
+    }
+  }
+  serial.println();
+
+  serial.println("SENSOR RAIN");
+  for(int j=0; j<RAIN_VAR_NUM; j++) {
+    serial.print("VAR NUM: "); serial.println(j);
+    for(int d=0; d<8; d++) {
+      serial.print("DATA[");serial.print(d);serial.print("]: ");
+      for(int c=0; c<8; c++) {
+        serial.print(data[4][j][d][c]);serial.print("|");
+      }
+    }
+  }
+  serial.println();
+
+  /*
   for(int i=0; i<number_of_sensors; i++) {
   serial.print("* SENSOR ");serial.print(i);serial.println(":                                    *");
     for(int j=0; j<4; j++) {
@@ -153,7 +215,7 @@ void print_data() {
         serial.print("                *");serial.println();
       }
     }
-  }
+  }*/
   serial.println("************************************************");
 }
 
