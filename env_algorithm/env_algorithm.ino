@@ -13,16 +13,26 @@
 #define BME280_CANID                0x103             // the CAN ID of the sensor
 #define BME280_VAR_NUM              3                 // we have 3 variables
 
-#define BQ34Z100_ID                 3                 // ID is 3
-#define BQ34Z100_CANID              0x104             // the CAN ID of the sensor
+#define ANEMOMETER_ID               3                 // ID is 4
+#define ANEMOMETER_CANID            0x104             // the CAN ID of the sensor
+#define ANEMOMETER_VAR_NUM          1                 // we have 1 variable
+
+#define RAIN_ID                     4                 // ID is 5
+#define RAIN_CANID                  0x105             // the CAN ID of the sensor
+#define RAIN_BUCKET_SIZE            0.01              // set by the dip switch (use 0.01mm sensitive)
+#define RAIN_VAR_NUM                1                 // we have 1 variable
+
+/*
+#define BQ34Z100_ID                 5                 // ID is 3
+#define BQ34Z100_CANID              0x106             // the CAN ID of the sensor
 #define BQ34Z100_VAR_NUM            4                 // we have 4 variables
 #define BQ34Z100_SERIESCELLS        3                 // example value CHANGE IT!   Number of series Batteries
 #define BQ34Z100_CELLCAPACITY       8000              // example value CHANGE IT!   Battery capacity in mAh
 #define BQ34Z100_PACKVOLTAGE        12369             // example value CHANGE IT!   Current voltage on the pack in mV (eg 12.369V)
 #define BQ34Z100_APPLIEDCURRENT     1000              // example value CHANGE IT!   Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
+*/
 
-
-const int number_of_sensors = 4;    // how many sensors are there
+const int number_of_sensors = 5;    // how many sensors are there
 
  
 // EXTRA DEFINES
@@ -38,7 +48,7 @@ const int number_of_sensors = 4;    // how many sensors are there
 #include <STM32L0.h>    
     
 // SERIAL
-#define serial       Serial1        // the serial we are using for debug
+#define serial       Serial        // the serial we are using for debug
 #define SERIAL_SPEED 115200         // the baud
 
 // CAN MODULE
@@ -91,15 +101,38 @@ TSL2561 _TSL2561(TSL2561_ADDR_FLOAT);
 BME280 _BME280(Wire,0x76);
 
 /**********************************************************************************/
+//                                     Anemometer                                 //
+#define _ANEMOMETER_PIN A0
+
+/**********************************************************************************/
+//                                     Rain sensor                                //
+#define _RAIN_PIN   2
+
+volatile unsigned long rain_tipCount;        // bucket tip counter used in interrupt routine
+volatile unsigned long rain_ContactTime;     // Timer to manage any contact bounce in interrupt routine
+
+float rain_totalRainfall;                    // total amount of rainfall detected 
+
+/**********************************************************************************/
 //                                      BQ34Z100                                  //
+/*
 #include "bq34z100.h"
 bq34z100 _BQ34Z100;
-
-
+*/
 // store sensor data
 // data_x[      sensors    ][vars][x*8bits][8 bits]
 byte data[number_of_sensors][  4 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
 bool init_worked[number_of_sensors];                  // check if it has inited correctly 
+
+/*
+ *  Function: mapf(float x, float in_min, float in_max, float out_min, float out_max)
+ *  Description: map function with floats
+ *  Paramter: same as map but with floats
+ */
+float mapf(float x, float in_min, float in_max, float out_min, float out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 /*
  *  Function: void print_data()
@@ -185,7 +218,7 @@ bool init_sensor(int num) {
       
       return true;
     }
-  } else if(num == BQ34Z100_ID) {
+  } /*else if(num == BQ34Z100_ID) {
     // according to the function the parameters are:
     //Battery Chemistry -- Number of series Batteries -- Battery capacity in mAh -- Current voltage on the pack in mV (eg 12.369V) -- Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
     _BQ34Z100.setup(0x101, BQ34Z100_SERIESCELLS, BQ34Z100_CELLCAPACITY, BQ34Z100_PACKVOLTAGE, BQ34Z100_APPLIEDCURRENT);
@@ -196,10 +229,38 @@ bool init_sensor(int num) {
       serial.println("void init_sensor(int num) - continuing as inited...");
     #endif
 
-    init_worked[BQ34Z100_ID] = true;
+    init_worked[BQ34Z100_ID] = false;
+    return false;
+ //   init_worked[BQ34Z100_ID] = true;
   
+   // return true;
+  } */else if(num == ANEMOMETER_ID) {
+
+    pinMode(_ANEMOMETER_PIN, INPUT);
+    analogReadResolution(12);
+    #ifdef debug
+      serial.println("void init_sensor(int num) - anemometer inited (pin to input)");
+    #endif
+
+    init_worked[ANEMOMETER_ID] = true;
+
     return true;
-  } else {
+      
+  } else if(num = RAIN_ID) {
+    
+    pinMode(_RAIN_PIN, INPUT);
+    attachInterrupt(digitalPinToInterrupt(_RAIN_PIN), ISR_RAIN, FALLING);
+
+    #ifdef debug
+      serial.println("void init_sensor(int num) - rain sensor inited");
+    #endif
+
+    init_worked[RAIN_ID] = true;
+
+    return true;
+  }
+  
+  else {
     
     // we have not configured this ID of sensor
     #ifdef debug
@@ -399,7 +460,7 @@ void get_sensor_data(int num) {
           data_coloumn_max[num] = 1;    // we have overflown the coloumn
         } 
       }
-    } else if(num == BQ34Z100_ID) {
+    } /*else if(num == BQ34Z100_ID) {
 
        // data of bq (/10 because of return of in x10 format)
        int bq_data[BQ34Z100_VAR_NUM] = {
@@ -442,7 +503,73 @@ void get_sensor_data(int num) {
         } 
        }
 
-    } else {
+    } */else if(num == ANEMOMETER_ID) {
+       // we are reading range of 0,4V (0m/s) -> 2V(32.4m/s)
+       // on 12bit we are getting 0-4094 value
+       // 0,4V(496) -> 2V (2481)
+
+       int anemometer_id      = 0;   
+       int anemometer_data    = analogRead(_ANEMOMETER_PIN);
+
+       // converting from 496-2482 to 0 - 32.4[m/s]
+       float anemometer_data_converter = mapf(anemometer_data, 496,2482,0,32.4);
+
+       #ifdef debug
+        serial.print("int get_sensor_data(int num) - WIND[m/s]:  ");  serial.println(anemometer_data_converter);
+       #endif
+
+       shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
+       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
+
+       data[num][anemometer_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]   = int(anemometer_data_converter);                                       // first element
+       data[num][anemometer_id][data_index_coloumn[num]][data_index_row[num] + shifted_second]  = int((anemometer_data_converter - int(anemometer_data_converter)) * 100);        // second element (decimal)
+
+       // go onto the next row
+       data_index_row[num]++;
+
+       // if we are out of index (more than 3 because we can only fit 4 data points (2x4))
+       // !! for 8 data points 3->7
+       if(data_index_row[num] > 3) {
+          data_index_row[num] = 0;        // go back to null
+          data_index_coloumn[num]++;      // go to the next coloumn
+            
+          // if we are overflowing
+          if(data_index_coloumn[num] > 7) {
+            data_index_coloumn[num] = 0;  // go back 
+            data_coloumn_max[num] = 1;  
+          } 
+       }
+    }
+    else if(num == RAIN_ID) {
+
+      // get the total rainfall
+      rain_totalRainfall = rain_tipCount * RAIN_BUCKET_SIZE;
+      
+      #ifdef debug
+        serial.print("int get_sensor_data(int num) - RAIN tip count: ");serial.println(rain_tipCount);
+        serial.print("int get_sensor_data(int num) - RAIN total rain fall"); serial.println(rain_totalRainfall);
+      #endif
+
+      data[num][0][data_index_coloumn[num]][data_index_row[num]] = int(rain_tipCount);                                // just send tip count becuase it can be calculated easily
+
+      // next row
+      data_index_row[num]++;
+
+      // out of index for the row
+      if(data_index_row[num] > 7) {
+
+        data_index_row[num] = 0;                      // reset the row
+        data_index_coloumn[num]++;                    // increment coloumn
+
+        // if coloumn out of index
+        if(data_index_coloumn[num] > 7) {
+          data_index_coloumn[num] = 0;                // reset coloumn
+          data_coloumn_max[num] = 1;                  // maximum reached
+        }
+        
+      }
+    } 
+    else {
       #ifdef debug
         serial.println("int get_sensor_data(int num) - that number (ID) of a sensor doesn't excist");
       #endif
@@ -537,13 +664,13 @@ void sleep_devices(void) {
     serial.println("void sleep_devices(void) - going into sleep");
   #endif
   
+  CAN_BUS.setMode(MCP_SLEEP);
   // STM32L0
   STM32L0.stop(TIMER_SECOND*1000);
   //research: https://github.com/GrumpyOldPizza/ArduinoCore-stm32l0/blob/18fb1cc81c6bc91b25e3346595f820985f2267e5/system/STM32L0xx/Source/stm32l0_system.c wakeup manually
 }
 
 void setup() {
-
   // Setup serial
   serial.begin(SERIAL_SPEED);
 
@@ -586,7 +713,7 @@ void loop() {
         data_begin[1] = L0_VAR_NUM;
         
         break;
-      case TSL2561_ID:
+      case TSL2561_CANID:
       
         #ifdef debug
           serial.println("void loop() - CAN_RXID is TSL2561");
@@ -602,7 +729,7 @@ void loop() {
         data_begin[1] = TSL2561_VAR_NUM;
 
         break;
-      case BQ34Z100_ID:
+      /*case BQ34Z100_CANID:
       
         #ifdef debug
           serial.println("void loop() - CAN_RXID is BQ34Z100");
@@ -617,6 +744,38 @@ void loop() {
         // number of variables we are using
         data_begin[1] = BQ34Z100_VAR_NUM;
         
+        break;*/
+      case ANEMOMETER_CANID:
+
+        #ifdef debug
+          serial.println("void loop() - CANRXID is ANEMOMETER");
+        #endif
+        
+          //ANEMOMETER I choose you!
+          chosen_sensor = ANEMOMETER_ID;
+
+          // get sensor data
+          get_sensor_data(ANEMOMETER_ID);
+
+          // number of variables we are using
+          data_begin[1] = ANEMOMETER_VAR_NUM;
+        
+        break;
+      case RAIN_CANID:
+
+        #ifdef debug
+          serial.println("void loop() - CANRXID is RAIN");
+        #endif
+
+        // RAIN I choose you!
+        chosen_sensor = RAIN_ID;
+
+        // get the RAIN data
+        get_sensor_data(RAIN_ID);
+
+        // number of variables from rain
+        data_begin[1] = RAIN_VAR_NUM;
+
         break;
       
     }
@@ -740,7 +899,6 @@ void ISR_CAN()
       send_via_int = true;                                            // we can send by interrupt
       not_my_id = false;                                              // it is our id
 
-      // add filtering here
     } else {
       #ifdef debug
         serial.println("ISR_CAN() - not my ID");
@@ -754,3 +912,29 @@ void ISR_CAN()
     serial.println("void ISR_CAN() - received but not exec");
   }
 }
+
+/*
+ *  Function:     void ISR_RAIN()
+ *  Description:  Interrupt on rain drop
+ */
+void ISR_RAIN() {
+
+  // wakeup the STM32L0
+  STM32L0.wakeup();
+
+  #ifdef debug
+    serial.println("void ISR_RAIN() - interrupt on rain drop");
+  #endif
+
+  // a small debounce
+  if((millis() - rain_ContactTime) > 70) {
+    rain_tipCount++;                                              // increment the rain drop
+    rain_ContactTime = millis();                                  // for debounce
+  }
+
+  // dont reboot just ignore everything
+  send_via_int = false;                                           // do not send!
+  not_my_id = true;                                               // not our ID
+  CAN_RXID = 0;
+}
+
