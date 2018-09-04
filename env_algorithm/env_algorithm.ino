@@ -743,6 +743,7 @@ void get_sensor_data(int num) {
       }
       
     } else if(num == TDR_ID) {
+      
       String inString = "";
       int TDR_counter = 0;
 
@@ -753,11 +754,8 @@ void get_sensor_data(int num) {
           0       // TDR_soil_elec
       };
 
-      // sending 5DO!
-      TDR_serial.print("5DO!");
-
       while(TDR_serial.available() > 0) {
-        int inChar = CO2_serial.read();
+        int inChar = TDR_serial.read();
 
         #ifdef debug
           serial.print("int get_sensor_data(int num) - ");serial.write(inChar);
