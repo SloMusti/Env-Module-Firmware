@@ -16,7 +16,11 @@
     
     - open up the rain sensor
         - set the dip switches by this pictre: ![image](http://static.cactus.io/img/sensors/weather/hydreon/hydreon-rg-11-dip-switch-settings.png) on the Bucket Size = 0.01mm (sensitive)
-    
+- CO2 sensor
+    - connect VDD to +3.3V
+    - connect GND to GND
+    - connect RX to PA9
+    - connect TX to PA10
 ## Raspberry Pi wiring
     - follow this to connect the MCP2515 module
         RPi Pin    RPi Label     CAN Module
