@@ -26,6 +26,10 @@
 #define CO2_CANID                   0x106             // the CAN ID of the sensor
 #define CO2_VAR_NUM                 1                 // we have 1 variable
 
+#define TDR_ID                      6
+#define TDR_CANID                   0x107
+#define TDR_VAR_NUM                 4
+
 /*
 #define BQ34Z100_ID                 5                 // ID is 3
 #define BQ34Z100_CANID              0x106             // the CAN ID of the sensor
@@ -36,7 +40,7 @@
 #define BQ34Z100_APPLIEDCURRENT     1000              // example value CHANGE IT!   Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
 */
 
-const int number_of_sensors = 6;    // how many sensors are there
+const int number_of_sensors = 7;    // how many sensors are there
 
  
 // EXTRA DEFINES
@@ -80,7 +84,7 @@ long unsigned int CAN_RXID;                   // used by ISR_CAN
 // DATA
 // store sensor data
 // data_x[      sensors    ][vars][x*8bits][8 bits]
-byte data[number_of_sensors][  3 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
+byte data[number_of_sensors][  4 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
 bool init_worked[number_of_sensors];                  // check if it has inited correctly 
 
 int  data_index_coloumn[number_of_sensors];   // coloumn array
@@ -108,7 +112,7 @@ TSL2561 _TSL2561(TSL2561_ADDR_FLOAT);
 //                                      BME280                                    //
 #include "BME280.h"
 /* A BME280 object with I2C address 0x76 (SDO to GND) */
-BME280 _BME280(Wire,0x76);
+BME280 _BME280(Wire,0x77);
 
 /**********************************************************************************/
 //                                     Anemometer                                 //
@@ -128,6 +132,12 @@ float rain_totalRainfall;                    // total amount of rainfall detecte
 
 #define CO2_serial          Serial1
 #define CO2_serial_baud     9600
+
+/**********************************************************************************/
+//                                     TDR                                        //
+
+#define TDR_serial          Serial
+#define TDR_serial_baud     115200
 
 /**********************************************************************************/
 //                                      BQ34Z100                                  //
@@ -224,6 +234,18 @@ void print_data() {
       serial.print("DATA[");serial.print(d);serial.print("]: ");
       for(int c=0; c<8; c++) {
         serial.print(data[5][j][d][c]);serial.print("|");
+      }
+    }
+  }
+  serial.println();
+
+  serial.println("SENSOR TDR");
+  for(int j=0; j<CO2_VAR_NUM; j++) {
+    serial.print("VAR NUM: "); serial.println(j);
+    for(int d=0; d<8; d++) {
+      serial.print("DATA[");serial.print(d);serial.print("]: ");
+      for(int c=0; c<8; c++) {
+        serial.print(data[6][j][d][c]);serial.print("|");
       }
     }
   }
@@ -365,6 +387,19 @@ bool init_sensor(int num) {
     init_worked[CO2_ID] = true;
 
     return true;
+    
+  } else if(num == TDR_ID) {
+
+    TDR_serial.begin(TDR_serial_baud);
+
+    #ifdef debug
+      serial.println("void init_sensor(int num) - TDR inited");
+    #endif
+
+    init_worked[TDR_ID] = true;
+
+    return true;
+    
   }
   
   else {
@@ -706,6 +741,100 @@ void get_sensor_data(int num) {
         }
         
       }
+      
+    } else if(num == TDR_ID) {
+      String inString = "";
+      int TDR_counter = 0;
+
+      int TDR_data[TDR_VAR_NUM] = {
+          0,      // TDR_vol_w_content
+          0,      // TDR_soil_temp
+          0,      // TDR_soil_perm
+          0       // TDR_soil_elec
+      };
+
+      // sending 5DO!
+      TDR_serial.print("5DO!");
+
+      while(TDR_serial.available() > 0) {
+        int inChar = CO2_serial.read();
+
+        #ifdef debug
+          serial.print("int get_sensor_data(int num) - ");serial.write(inChar);
+        #endif
+
+        if(inChar == '5' && TDR_counter == 0) {
+           // the first 5
+        } else {
+
+          if(inChar == '+') {
+            switch(TDR_counter) {
+              case 1: 
+                TDR_data[TDR_counter - 1] = inString.toInt();
+                #ifdef debug
+                  serial.print("int get_sensor_data(int num) - vol_w_content:"); serial.println(TDR_data[TDR_counter - 1]);
+                #endif
+                break;
+              case 2: 
+                TDR_data[TDR_counter - 1] = inString.toInt();
+                #ifdef debug
+                  serial.print("int get_sensor_data(int num) - soil_temp:"); serial.println(TDR_data[TDR_counter - 1]);
+                #endif
+                break;
+              case 3:
+                TDR_data[TDR_counter - 1] = inString.toInt();
+                #ifdef debug
+                  serial.print("int get_sensor_data(int num) - soil_perm:"); serial.println(TDR_data[TDR_counter - 1]);
+                #endif
+                break;
+              case 4:
+                TDR_data[TDR_counter - 1] = inString.toInt();
+                #ifdef debug
+                  serial.print("int get_sensor_data(int num) - soil_elec:"); serial.println(TDR_data[TDR_counter - 1]);
+                #endif
+                break;
+            }
+            
+            TDR_counter++;
+            inString = "";
+          } else if(inChar == '\r') {
+            //just ignore 
+          } else if(inChar == '\n') {
+            //end of everything just escape the while loop
+            break;
+          }
+          else {
+            if(isDigit(inChar)) {
+             inString += (char)inChar;
+            }
+          }
+        }
+      }// end of while
+
+      shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
+      shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
+
+      for(int TDR_id_counter = 0; TDR_id_counter < TDR_VAR_NUM; TDR_id_counter++) {
+
+        data[num][TDR_id_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first]   = lowByte(TDR_data[TDR_id_counter]);         // first element
+        data[num][TDR_id_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second]  = highByte(TDR_data[TDR_id_counter]);        // second element (decimal)
+
+      }
+      // go onto the next row
+      data_index_row[num]++;
+
+      // if we are out of index (more than 3 because we can only fit 4 data points (2x4))
+      // !! for 8 data points 3->7
+      if(data_index_row[num] > 3) {
+        data_index_row[num] = 0;        // go back to null
+        data_index_coloumn[num]++;      // go to the next coloumn
+            
+        // if we are overflowing
+        if(data_index_coloumn[num] > 7) {
+          data_index_coloumn[num] = 0;  // go back 
+          data_coloumn_max[num] = 1;  
+        } 
+     }
       
     }
     else {
