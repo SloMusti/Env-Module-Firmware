@@ -253,10 +253,12 @@ void print_data() {
  */
 bool init_sensor(int num) {
 
-  /*#ifdef debug
+  #ifdef debug
     serial.print("void select_sensor(int num) - Selecting sensor number: "); serial.print(num); serial.println();
-  #endif*/
-                      
+  #endif
+
+  
+                     
   if(num == L0_ID) {
     #ifdef debug
       serial.println("void init_sensor(int num) - L0 MCU inited");
@@ -324,10 +326,13 @@ bool init_sensor(int num) {
  //   init_worked[BQ34Z100_ID] = true;
   
    // return true;
-  } */else if(num == ANEMOMETER_ID) {
+  } */
+  
+  else if(num == ANEMOMETER_ID) {
 
     pinMode(_ANEMOMETER_PIN, INPUT);
     analogReadResolution(12);
+    
     #ifdef debug
       serial.println("void init_sensor(int num) - anemometer inited (pin to input)");
     #endif
@@ -348,6 +353,7 @@ bool init_sensor(int num) {
     init_worked[RAIN_ID] = true;
 
     return true;
+    
   } else if(num == CO2_ID) {
     
     CO2_serial.begin(CO2_serial_baud);
