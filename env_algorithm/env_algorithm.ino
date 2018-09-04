@@ -335,7 +335,7 @@ bool init_sensor(int num) {
 
     return true;
       
-  } else if(num = RAIN_ID) {
+  } else if(num == RAIN_ID) {
     
     pinMode(_RAIN_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(_RAIN_PIN), ISR_RAIN, FALLING);
@@ -348,7 +348,12 @@ bool init_sensor(int num) {
 
     return true;
   } else if(num == CO2_ID) {
+    
     CO2_serial.begin(CO2_serial_baud);
+
+    #ifdef debug
+      serial.println("void init_sensor(int num) - CO2 inited");
+    #endif
 
     init_worked[CO2_ID] = true;
 
