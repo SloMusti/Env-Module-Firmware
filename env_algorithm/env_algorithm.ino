@@ -147,6 +147,8 @@ float mapf(float x, float in_min, float in_max, float out_min, float out_max)
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+
+
 /*
  *  Function: void print_data()
  *  Description: print data fom data array
@@ -210,6 +212,18 @@ void print_data() {
       serial.print("DATA[");serial.print(d);serial.print("]: ");
       for(int c=0; c<8; c++) {
         serial.print(data[4][j][d][c]);serial.print("|");
+      }
+    }
+  }
+  serial.println();
+
+  serial.println("SENSOR CO2");
+  for(int j=0; j<CO2_VAR_NUM; j++) {
+    serial.print("VAR NUM: "); serial.println(j);
+    for(int d=0; d<8; d++) {
+      serial.print("DATA[");serial.print(d);serial.print("]: ");
+      for(int c=0; c<8; c++) {
+        serial.print(data[5][j][d][c]);serial.print("|");
       }
     }
   }
@@ -335,6 +349,10 @@ bool init_sensor(int num) {
     return true;
   } else if(num == CO2_ID) {
     CO2_serial.begin(CO2_serial_baud);
+
+    init_worked[CO2_ID] = true;
+
+    return true;
   }
   
   else {
@@ -374,6 +392,9 @@ void get_sensor_data(int num) {
           serial.print("int get_sensor_data(int num) - STM32L0 VDD: ");  serial.println(l0_data[1]); 
         #endif
 
+        l0_data[0] = int(l0_data[0] * 100);   
+        l0_data[1] = int(l0_data[1] * 100);
+
         shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
         shifted_second = data_index_row[num] + 1;       // as we are sending float the second value (decimal) is shifted +1
 
@@ -397,8 +418,8 @@ void get_sensor_data(int num) {
          */
 
         for(int num_counter=0; num_counter < L0_VAR_NUM; num_counter++) {
-          data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(l0_data[num_counter]);                              // first element
-          data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((l0_data[num_counter] - int(l0_data[num_counter])) * 100);   // second element (decimal)
+          data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first] = lowByte(int(l0_data[0] * 100));          // first element
+          data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second] = highByte(int(l0_data[1] * 100));        // second element (decimal)
         }
 
         // go onto the next row
@@ -428,14 +449,14 @@ void get_sensor_data(int num) {
         serial.print("int get_sensor_data(int num) - VISIBLE:  ");serial.println(tsl_data[0]);
         serial.print("int get_sensor_data(int num) - FULLSPEC: ");serial.println(tsl_data[1]);
         serial.print("int get_sensor_data(int num) - INFRARED: ");serial.println(tsl_data[2]);
-      #endif
+      #endif    
 
       shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
 
       for(int num_counter = 0; num_counter < TSL2561_VAR_NUM; num_counter++) {
-        data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first] = (uint8_t)((tsl_data[num_counter] & 0xFF00) >> 8);             // first element
-        data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second] = (uint8_t)(tsl_data[num_counter] & 0x00FF);                   // second element (decimal)
+        data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first] = lowByte(tsl_data[num_counter]);             // first element
+        data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second] = highByte(tsl_data[num_counter]);                   // second element (decimal)
       }
 
       // go onto the next row
@@ -473,54 +494,24 @@ void get_sensor_data(int num) {
         serial.print("int get_sensor_data(int num) - HUMIDITY: ");serial.println(bme_humidity);
       #endif
 
+      int int_bme_pressure      = int(bme_pressure * 100);
+      int int_bme_temperature   = int(bme_temperature * 100);
+      int int_bme_humidity      = int(bme_humidity * 100);
+
       shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
-      shifted_third  = data_index_row[num] + 2;        // as we are sending float the second value (decimal) is shifted +2
-      shifted_fourth = data_index_row[num] + 3;        // as we are sending float the second value (decimal) is shifted +3
-      
-      // pressure EXAMPLE: 100956,167
-      byte one_pressure = int(bme_pressure / 1000);            // 100
-      byte two_pressure = int(int(bme_pressure - (one_pressure * 1000)) / 10);        // 95
-      byte three_pressure = int((bme_pressure - (one_pressure * 1000 + two_pressure * 10)) * 10);       // 61
-      byte four_pressure = int(((bme_pressure - one_pressure*1000) * 1000) - (two_pressure*10000) - (three_pressure * 100));    // 67
 
-      // save the old row index
-      old_row_index = data_index_row[num];
-
-      // only on 0 and 1 
-      if(data_index_row[num] == 0 || data_index_row[num] == 1) {
-
-        // if it is on the 0th row
-        if(data_index_row[num] == 0) {
-
-          // set the index row to 0 (this doesnt even need checking...
-          data_index_row[num] = 0;
-        } else if(data_index_row[num] == 1) {
-
-          // if we are on the first(second) row we go to the 3rd
-          data_index_row[num] = data_index_row[num] + 2;
-        }
-
-        // setting up the data
-        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]  = one_pressure;       // shifted first set the one_pressure
-        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = two_pressure;       // shifted second set the two_pressure
-        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_third]  = three_pressure;     // shifted three set the three_pressure
-        data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_fourth] = four_pressure;      // shifted fourth set the four_pressure
-
-        // set back the num index
-        data_index_row[num] = old_row_index;
-        
-      } else if(data_index_row[num] > 1) {
-        // just ignore it
-      }
+      // setting up the data
+      data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]        = lowByte(int_bme_pressure);           // shifted first set the one_pressure
+      data[num][bme_pressure_id][data_index_coloumn[num]][data_index_row[num] + shifted_second]       = highByte(int_bme_pressure);          // shifted second set the two_pressure
 
       // temperature
-      data[num][bme_temperature_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(bme_temperature);                                  // first element
-      data[num][bme_temperature_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((bme_temperature - int(bme_temperature)) * 100);     // second element (decimal)
+      data[num][bme_temperature_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]     = lowByte(int_bme_temperature);      // first element
+      data[num][bme_temperature_id][data_index_coloumn[num]][data_index_row[num] + shifted_second]    = highByte(int_bme_temperature);    // second element (decimal)
       
       // humidity
-      data[num][bme_humidity_id][data_index_coloumn[num]][data_index_row[num] + shifted_first] = int(bme_humidity);                                     // first element
-      data[num][bme_humidity_id][data_index_coloumn[num]][data_index_row[num] + shifted_second] = int((bme_humidity - int(bme_humidity)) * 100);        // second element (decimal)
+      data[num][bme_humidity_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]        = lowByte(int_bme_humidity);            // first element
+      data[num][bme_humidity_id][data_index_coloumn[num]][data_index_row[num] + shifted_second]       = highByte(int_bme_humidity);          // second element (decimal)
 
       // go onto the next row
       data_index_row[num]++;
@@ -591,6 +582,8 @@ void get_sensor_data(int num) {
        // converting from 496-2482 to 0 - 32.4[m/s]
        float anemometer_data_converter = mapf(anemometer_data, 496,2482,0,32.4);
 
+       int int_anemometar_data_converter = int(anemometer_data_converter * 100);
+
        #ifdef debug
         serial.print("int get_sensor_data(int num) - WIND[m/s]:  ");  serial.println(anemometer_data_converter);
        #endif
@@ -598,8 +591,8 @@ void get_sensor_data(int num) {
        shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
        shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
 
-       data[num][anemometer_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]   = int(anemometer_data_converter);                                       // first element
-       data[num][anemometer_id][data_index_coloumn[num]][data_index_row[num] + shifted_second]  = int((anemometer_data_converter - int(anemometer_data_converter)) * 100);        // second element (decimal)
+       data[num][anemometer_id][data_index_coloumn[num]][data_index_row[num] + shifted_first]   = lowByte(int_anemometar_data_converter);                                       // first element
+       data[num][anemometer_id][data_index_coloumn[num]][data_index_row[num] + shifted_second]  = highByte(int_anemometar_data_converter);        // second element (decimal)
 
        // go onto the next row
        data_index_row[num]++;
@@ -666,7 +659,7 @@ void get_sensor_data(int num) {
         }
 
         if(inChar == '\n') {
-          co2_value = inString.toInt();
+          co2_value = (inString.toInt() / 10);
 
           #ifdef debug
             serial.print("int get_sensor_data(int num) - ppm:");serial.print(co2_value);
@@ -675,9 +668,13 @@ void get_sensor_data(int num) {
         
       }
 
-      data[num][0][data_index_coloumn[num]][data_index_row[num]] = map(co2_value, 40, 20000, 0, 255);
+      shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
+      shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
+
+      data[num][0][data_index_coloumn[num]][data_index_row[num] + shifted_first] = lowByte(co2_value);
+      data[num][0][data_index_coloumn[num]][data_index_row[num] + shifted_second] = highByte(co2_value);
       // WARNING!
-      // on the master side the value you get multiple by x10!!!!
+      // on the master side the value you get multiple by x100!!!!
 
        // next row
       data_index_row[num]++;
@@ -799,6 +796,7 @@ void sleep_devices(void) {
 }
 
 void setup() {
+  
   // Setup serial
   serial.begin(SERIAL_SPEED);
 
