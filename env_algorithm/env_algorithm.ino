@@ -13,14 +13,18 @@
 #define BME280_CANID                0x103             // the CAN ID of the sensor
 #define BME280_VAR_NUM              3                 // we have 3 variables
 
-#define ANEMOMETER_ID               3                 // ID is 4
+#define ANEMOMETER_ID               3                 // ID is 3
 #define ANEMOMETER_CANID            0x104             // the CAN ID of the sensor
 #define ANEMOMETER_VAR_NUM          1                 // we have 1 variable
 
-#define RAIN_ID                     4                 // ID is 5
+#define RAIN_ID                     4                 // ID is 4
 #define RAIN_CANID                  0x105             // the CAN ID of the sensor
 #define RAIN_BUCKET_SIZE            0.01              // set by the dip switch (use 0.01mm sensitive)
 #define RAIN_VAR_NUM                1                 // we have 1 variable
+
+#define CO2_ID                      5                 // ID is 5
+#define CO2_CANID                   0x106             // the CAN ID of the sensor
+#define CO2_VAR_NUM                 1                 // we have 1 variable
 
 /*
 #define BQ34Z100_ID                 5                 // ID is 3
@@ -32,7 +36,7 @@
 #define BQ34Z100_APPLIEDCURRENT     1000              // example value CHANGE IT!   Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
 */
 
-const int number_of_sensors = 5;    // how many sensors are there
+const int number_of_sensors = 6;    // how many sensors are there
 
  
 // EXTRA DEFINES
@@ -118,6 +122,12 @@ volatile unsigned long rain_tipCount;        // bucket tip counter used in inter
 volatile unsigned long rain_ContactTime;     // Timer to manage any contact bounce in interrupt routine
 
 float rain_totalRainfall;                    // total amount of rainfall detected 
+
+/**********************************************************************************/
+//                                      CO2                                       //
+
+#define CO2_serial          Serial1
+#define CO2_serial_baud     9600
 
 /**********************************************************************************/
 //                                      BQ34Z100                                  //
@@ -323,6 +333,8 @@ bool init_sensor(int num) {
     init_worked[RAIN_ID] = true;
 
     return true;
+  } else if(num == CO2_ID) {
+    CO2_serial.begin(CO2_serial_baud);
   }
   
   else {
@@ -633,7 +645,58 @@ void get_sensor_data(int num) {
         }
         
       }
-    } 
+    } else if(num == CO2_ID) {
+
+      String inString = "";
+      int co2_value = 0;
+        
+      while(CO2_serial.available() > 0) {
+        int inChar = CO2_serial.read();
+
+        #ifdef debug
+          serial.print("int get_sensor_data(int num) - ");serial.write(inChar);
+        #endif
+  
+        if(inChar == 'z' || inChar == 'Z') {
+          inString = "";
+        }
+
+        if(isDigit(inChar)) {
+           inString += (char)inChar;
+        }
+
+        if(inChar == '\n') {
+          co2_value = inString.toInt();
+
+          #ifdef debug
+            serial.print("int get_sensor_data(int num) - ppm:");serial.print(co2_value);
+          #endif
+        }
+        
+      }
+
+      data[num][0][data_index_coloumn[num]][data_index_row[num]] = map(co2_value, 40, 20000, 0, 255);
+      // WARNING!
+      // on the master side the value you get multiple by x10!!!!
+
+       // next row
+      data_index_row[num]++;
+
+      // out of index for the row
+      if(data_index_row[num] > 7) {
+
+        data_index_row[num] = 0;                      // reset the row
+        data_index_coloumn[num]++;                    // increment coloumn
+
+        // if coloumn out of index
+        if(data_index_coloumn[num] > 7) {
+          data_index_coloumn[num] = 0;                // reset coloumn
+          data_coloumn_max[num] = 1;                  // maximum reached
+        }
+        
+      }
+      
+    }
     else {
       #ifdef debug
         serial.println("int get_sensor_data(int num) - that number (ID) of a sensor doesn't excist");
@@ -842,6 +905,18 @@ void loop() {
         // number of variables from rain
         data_begin[1] = RAIN_VAR_NUM;
 
+        break;
+      case CO2_CANID:
+
+        #ifdef debug
+          serial.println("void loop() - CANRXID is CO2");
+        #endif
+
+        chosen_sensor = CO2_ID;
+
+        get_sensor_data(CO2_ID);
+
+        data_begin[1] = CO2_VAR_NUM;
         break;
       
     }
