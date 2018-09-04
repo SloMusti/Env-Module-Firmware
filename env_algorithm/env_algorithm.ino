@@ -40,7 +40,7 @@
 #define BQ34Z100_APPLIEDCURRENT     1000              // example value CHANGE IT!   Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
 */
 
-const int number_of_sensors = 7;    // how many sensors are there
+const int number_of_sensors = 6;    // how many sensors are there
 
  
 // EXTRA DEFINES
