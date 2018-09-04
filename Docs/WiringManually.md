@@ -14,6 +14,9 @@
     - NO as showed here: ![image](http://static.cactus.io/img/hookups/circuits/hydreon-rg-11-hookup-circuit.jpg), where the digital  pin is PA10
     - COM to GND
     
+    - open up the rain sensor
+        - set the dip switches by this pictre: ![image](http://static.cactus.io/img/sensors/weather/hydreon/hydreon-rg-11-dip-switch-settings.png) on the Bucket Size = 0.01mm (sensitive)
+    
 ## Raspberry Pi wiring
     - follow this to connect the MCP2515 module
         RPi Pin    RPi Label     CAN Module
