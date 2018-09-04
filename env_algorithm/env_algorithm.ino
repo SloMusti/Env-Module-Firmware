@@ -673,12 +673,14 @@ void get_sensor_data(int num) {
         if(inChar == '\n') {
           co2_value = (inString.toInt() / 10);
 
-          #ifdef debug
-            serial.print("int get_sensor_data(int num) - ppm:");serial.print(co2_value);
-          #endif
+         
         }
         
       }
+
+      #ifdef debug
+        serial.print("int get_sensor_data(int num) - ppm:");serial.println(co2_value);
+      #endif
 
       shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
