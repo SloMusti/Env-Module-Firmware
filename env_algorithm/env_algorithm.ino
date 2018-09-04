@@ -112,7 +112,7 @@ BME280 _BME280(Wire,0x76);
 
 /**********************************************************************************/
 //                                     Rain sensor                                //
-#define _RAIN_PIN   2
+#define _RAIN_PIN   5
 
 volatile unsigned long rain_tipCount;        // bucket tip counter used in interrupt routine
 volatile unsigned long rain_ContactTime;     // Timer to manage any contact bounce in interrupt routine
