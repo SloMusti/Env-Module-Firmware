@@ -307,7 +307,8 @@ bool init_sensor(int num) {
       
       return true;
     }
-  } /*else if(num == BQ34Z100_ID) {
+  }
+   /*else if(num == BQ34Z100_ID) {
     // according to the function the parameters are:
     //Battery Chemistry -- Number of series Batteries -- Battery capacity in mAh -- Current voltage on the pack in mV (eg 12.369V) -- Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
     _BQ34Z100.setup(0x101, BQ34Z100_SERIESCELLS, BQ34Z100_CELLCAPACITY, BQ34Z100_PACKVOLTAGE, BQ34Z100_APPLIEDCURRENT);
