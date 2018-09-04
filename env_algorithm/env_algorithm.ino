@@ -73,6 +73,12 @@ bool not_my_id = false;
        
 long unsigned int CAN_RXID;                   // used by ISR_CAN
 
+// DATA
+// store sensor data
+// data_x[      sensors    ][vars][x*8bits][8 bits]
+byte data[number_of_sensors][  3 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
+bool init_worked[number_of_sensors];                  // check if it has inited correctly 
+
 int  data_index_coloumn[number_of_sensors];   // coloumn array
 int  data_index_row[number_of_sensors];       // row array
 bool data_coloumn_max[number_of_sensors];     // max coloumn value 
@@ -119,10 +125,7 @@ float rain_totalRainfall;                    // total amount of rainfall detecte
 #include "bq34z100.h"
 bq34z100 _BQ34Z100;
 */
-// store sensor data
-// data_x[      sensors    ][vars][x*8bits][8 bits]
-byte data[number_of_sensors][  3 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
-bool init_worked[number_of_sensors];                  // check if it has inited correctly 
+
 
 /*
  *  Function: mapf(float x, float in_min, float in_max, float out_min, float out_max)
@@ -773,6 +776,7 @@ void loop() {
 
         // number of variables we are using
         data_begin[1] = L0_VAR_NUM;
+
         
         break;
       case TSL2561_CANID:
@@ -870,7 +874,7 @@ void loop() {
     }
 
     // loop through the variables 
-    for(int varz=0; varz<L0_VAR_NUM;varz++) {
+    for(int varz=0; varz<data_begin[1];varz++) {
       // loop through the coloumns
       for(int i=0; i < data_index_coloumn[chosen_sensor]+1; i++) {
         // if it is not a full row (not 8bits) send as many as avaible (data_index_row)
