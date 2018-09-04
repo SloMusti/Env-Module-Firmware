@@ -11,7 +11,7 @@
 - Rain sensor
     - PWR1 to 12V
     - PWR2 to GND
-    - NO as showed here: ![image](http://static.cactus.io/img/hookups/circuits/hydreon-rg-11-hookup-circuit.jpg), where the digital  pin is PA10
+    - NO as showed here: ![image](http://static.cactus.io/img/hookups/circuits/hydreon-rg-11-hookup-circuit.jpg), where the digital  pin is PA10 and the 5V is 3.3V!!!!
     - COM to GND
     
     - open up the rain sensor
