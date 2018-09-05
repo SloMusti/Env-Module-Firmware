@@ -464,11 +464,12 @@ void get_sensor_data(int num) {
          * 
          */
 
-        for(int num_counter=0; num_counter < L0_VAR_NUM; num_counter++) {
-          data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first] = lowByte(int(l0_data[0] * 100));          // first element
-          data[num][num_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second] = highByte(int(l0_data[1] * 100));        // second element (decimal)
-        }
+        data[num][0][data_index_coloumn[num]][data_index_row[num] + shifted_first] = lowByte(int(l0_data[0]));          // first element
+        data[num][0][data_index_coloumn[num]][data_index_row[num] + shifted_second] = highByte(int(l0_data[0]));        // second element (decimal)
 
+        data[num][1][data_index_coloumn[num]][data_index_row[num] + shifted_first] = lowByte(int(l0_data[1]));          // first element
+        data[num][1][data_index_coloumn[num]][data_index_row[num] + shifted_second] = highByte(int(l0_data[1]));        // second element (decimal)
+        
         // go onto the next row
         data_index_row[num]++;
 
@@ -484,6 +485,7 @@ void get_sensor_data(int num) {
             data_coloumn_max[num] = 1;  
           } 
         }
+
     } else if(num == TSL2561_ID) {
 
       uint16_t tsl_data[TSL2561_VAR_NUM] = {
@@ -1178,7 +1180,6 @@ void loop() {
     data_index_coloumn[chosen_sensor] = 0;                    // reset coloumn
     data_coloumn_max[chosen_sensor]   = false;                // reset max coloumn number to 0
     
-    print_data();
     // clear every data
     for(int i=0; i<data_begin[1]; i++) {
       for(int j=0; j<8; j++) {
@@ -1187,8 +1188,6 @@ void loop() {
         }
       }
     }
-
-    print_data();
     
     send_via_int = false;         // clear the interrupt flag
     exec_int_can = true;          // allow interrupt to be exec
