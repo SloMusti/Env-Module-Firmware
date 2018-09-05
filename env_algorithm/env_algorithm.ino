@@ -1174,9 +1174,9 @@ void loop() {
     }
 
     // set all coloumn and row values to 0
-      data_index_row[chosen_sensor]     = 0;                    // reset row
-      data_index_coloumn[chosen_sensor] = 0;                    // reset coloumn
-      data_coloumn_max[chosen_sensor]   = false;                // reset max coloumn number to 0
+    data_index_row[chosen_sensor]     = 0;                    // reset row
+    data_index_coloumn[chosen_sensor] = 0;                    // reset coloumn
+    data_coloumn_max[chosen_sensor]   = false;                // reset max coloumn number to 0
     
     print_data();
     // clear every data
