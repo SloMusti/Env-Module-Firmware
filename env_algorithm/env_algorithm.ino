@@ -28,7 +28,7 @@
 
 #define TDR_ID                      6
 #define TDR_CANID                   0x107
-#define TDR_VAR_NUM                 4
+#define TDR_VAR_NUM                 5
 
 /*
 #define BQ34Z100_ID                 5                 // ID is 3
@@ -40,7 +40,7 @@
 #define BQ34Z100_APPLIEDCURRENT     1000              // example value CHANGE IT!   Current being applied to the pack for currentShunt Cal in mA (must be > 200mA)
 */
 
-const int number_of_sensors = 6;    // how many sensors are there
+const int number_of_sensors = 7;    // how many sensors are there
 
  
 // EXTRA DEFINES
@@ -70,8 +70,8 @@ const int number_of_sensors = 6;    // how many sensors are there
 #define CAN_MASTER_ID 0x001
 #define CAN_ID      0x100
 
-#define CAN_SPEED CAN_500KBPS       // CAN_125KBPS
-#define CAN_MHZ   MCP_8MHZ          // MCP_16MHZ, MCP_20MHZ
+#define CAN_SPEED CAN_125KBPS       // CAN_125KBPS
+#define CAN_MHZ   MCP_20MHZ          // MCP_16MHZ, MCP_20MHZ
 
 MCP_CAN CAN_BUS(CAN_PIN_NSS);       // can bus object
 
@@ -84,7 +84,7 @@ long unsigned int CAN_RXID;                   // used by ISR_CAN
 // DATA
 // store sensor data
 // data_x[      sensors    ][vars][x*8bits][8 bits]
-byte data[number_of_sensors][  4 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
+byte data[number_of_sensors][  5 ][   8   ][  8   ];  // number of sensors * variables * 64 bit
 bool init_worked[number_of_sensors];                  // check if it has inited correctly 
 
 int  data_index_coloumn[number_of_sensors];   // coloumn array
@@ -112,7 +112,7 @@ TSL2561 _TSL2561(TSL2561_ADDR_FLOAT);
 //                                      BME280                                    //
 #include "BME280.h"
 /* A BME280 object with I2C address 0x76 (SDO to GND) */
-BME280 _BME280(Wire,0x77);
+BME280 _BME280(Wire,0x76);
 
 /**********************************************************************************/
 //                                     Anemometer                                 //
@@ -526,6 +526,8 @@ void get_sensor_data(int num) {
       // get bme280 sensor data
       _BME280.readSensor();
 
+      
+
       int bme_pressure_id     = 0;                                // id of bme pressure
       float bme_pressure      = _BME280.getPressure_Pa();         // data of bme pressure
       
@@ -544,6 +546,8 @@ void get_sensor_data(int num) {
       int int_bme_pressure      = int(bme_pressure * 100);
       int int_bme_temperature   = int(bme_temperature * 100);
       int int_bme_humidity      = int(bme_humidity * 100);
+
+      
 
       shifted_first  = data_index_row[num];            // as we are sending float value we always have to shift one place
       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
@@ -687,26 +691,32 @@ void get_sensor_data(int num) {
       }
     } else if(num == CO2_ID) {
 
-      String inString = "";
-      int co2_value = 0;
-        
+      String inString = "";                                                         // string where we store live data
+      int co2_value = 0;                                                            // the data we will send
+
+      // while we have data from co2
       while(CO2_serial.available() > 0) {
+
+        // read the character
         int inChar = CO2_serial.read();
 
         #ifdef debug
           serial.print("int get_sensor_data(int num) - ");serial.write(inChar);
         #endif
-  
+
+        // if z or Z reset 
         if(inChar == 'z' || inChar == 'Z') {
           inString = "";
         }
 
+        // if it is a digit then just add it to the string
         if(isDigit(inChar)) {
            inString += (char)inChar;
         }
 
+        // \n represents the end of the data
         if(inChar == '\n') {
-          co2_value = (inString.toInt() / 10);
+          co2_value = (inString.toInt() / 10);    // calculate the data
 
          
         }
@@ -743,29 +753,43 @@ void get_sensor_data(int num) {
       }
       
     } else if(num == TDR_ID) {
-      
-      String inString = "";
-      int TDR_counter = 0;
 
+      // example:
+      // 0+25.03+32.16+32.13+1600+1700\r\n
+      
+      String inString = "";                           // where to store string
+      int TDR_counter = 0;                            // TDR value counter
+
+      // storing value here (live data)
       int TDR_data[TDR_VAR_NUM] = {
           0,      // TDR_vol_w_content
           0,      // TDR_soil_temp
           0,      // TDR_soil_perm
-          0       // TDR_soil_elec
+          0,      // TDR_soil_elec
+          0       // some other data
       };
 
+      // this is where we send a "ready" message to the arduino
+      #ifdef debug
+        serial.println("sending ready to arduino");
+      #endif
+
+      delay(1000);
+
+      // while we have data from the serial
       while(TDR_serial.available() > 0) {
+
+        // read the serial
         int inChar = TDR_serial.read();
 
-        #ifdef debug
-          serial.print("int get_sensor_data(int num) - ");serial.write(inChar);
-        #endif
-
-        if(inChar == '5' && TDR_counter == 0) {
-           // the first 5
+        // we dont look at the first 0 character
+        if(inChar == '0' && TDR_counter == 0) {
+           // the first 0
         } else {
-
+          // detecting the + character
           if(inChar == '+') {
+
+            // dependent on the TDR_counter
             switch(TDR_counter) {
               case 1: 
                 TDR_data[TDR_counter - 1] = inString.toInt();
@@ -792,18 +816,33 @@ void get_sensor_data(int num) {
                 #endif
                 break;
             }
-            
-            TDR_counter++;
-            inString = "";
-          } else if(inChar == '\r') {
+
+            TDR_counter++;                                              // increment counter
+            inString = "";                                              // zero down the string
+          } else if(inChar == 114) { // \r
             //just ignore 
-          } else if(inChar == '\n') {
+          } else if(inChar == 110) { // \n
+            
             //end of everything just escape the while loop
+
+            // processing the last value
+            TDR_data[TDR_counter-1] = inString.toInt();                 
+            
+            #ifdef debug
+              serial.print("int get_sensor_data(int num) - some other:"); serial.println(TDR_data[TDR_counter - 1]);
+            #endif
+
+            // endind the communication
+            #ifdef debug
+              serial.println("int get_sensor_data(int num) - ending the TDR communication");
+            #endif 
+            
             break;
           }
           else {
+            // check if it is a digit
             if(isDigit(inChar)) {
-             inString += (char)inChar;
+             inString += (char)inChar;                                  // add it to the live string
             }
           }
         }
@@ -813,7 +852,11 @@ void get_sensor_data(int num) {
       shifted_second = data_index_row[num] + 1;        // as we are sending float the second value (decimal) is shifted +1
 
       for(int TDR_id_counter = 0; TDR_id_counter < TDR_VAR_NUM; TDR_id_counter++) {
-
+        
+        #ifdef debug
+          serial.println(TDR_data[TDR_id_counter]);
+        #endif
+        
         data[num][TDR_id_counter][data_index_coloumn[num]][data_index_row[num] + shifted_first]   = lowByte(TDR_data[TDR_id_counter]);         // first element
         data[num][TDR_id_counter][data_index_coloumn[num]][data_index_row[num] + shifted_second]  = highByte(TDR_data[TDR_id_counter]);        // second element (decimal)
 
@@ -842,7 +885,7 @@ void get_sensor_data(int num) {
     }
 
     // print data array
-    print_data();
+    //print_data();
     
   } else {
     #ifdef debug
@@ -930,7 +973,7 @@ void sleep_devices(void) {
     serial.println("void sleep_devices(void) - going into sleep");
   #endif
   
-  CAN_BUS.setMode(MCP_SLEEP);
+ // CAN_BUS.setMode(MCP_SLEEP);
   // STM32L0
   STM32L0.stop(TIMER_SECOND*1000);
   //research: https://github.com/GrumpyOldPizza/ArduinoCore-stm32l0/blob/18fb1cc81c6bc91b25e3346595f820985f2267e5/system/STM32L0xx/Source/stm32l0_system.c wakeup manually
@@ -997,22 +1040,22 @@ void loop() {
         data_begin[1] = TSL2561_VAR_NUM;
 
         break;
-      /*case BQ34Z100_CANID:
+      case BME280_CANID:
       
         #ifdef debug
           serial.println("void loop() - CAN_RXID is BQ34Z100");
         #endif
 
         // BQ34Z100 I choose you!
-        chosen_sensor = BQ34Z100_ID;
+        chosen_sensor = BME280_ID;
 
         // get sensor data
-        get_sensor_data(BQ34Z100_ID);
+        get_sensor_data(BME280_ID);
 
         // number of variables we are using
-        data_begin[1] = BQ34Z100_VAR_NUM;
+        data_begin[1] = BME280_VAR_NUM;
         
-        break;*/
+        break;
       case ANEMOMETER_CANID:
 
         #ifdef debug
@@ -1056,6 +1099,19 @@ void loop() {
         get_sensor_data(CO2_ID);
 
         data_begin[1] = CO2_VAR_NUM;
+        break;
+
+      case TDR_CANID:
+
+        #ifdef debug
+          serial.println("void loop() - CANRXID is TDR");
+        #endif
+
+        chosen_sensor = TDR_ID;
+
+        get_sensor_data(TDR_ID);
+
+        data_begin[1] = TDR_VAR_NUM;
         break;
       
     }
@@ -1118,14 +1174,21 @@ void loop() {
     }
 
     // set all coloumn and row values to 0
-    for(int i=0; i<number_of_sensors; i++) {
-      data_index_row[i]     = 0;                    // reset row
-      data_index_coloumn[i] = 0;                    // reset coloumn
-      data_coloumn_max[i]   = false;                // reset max coloumn number to 0
+      data_index_row[chosen_sensor]     = 0;                    // reset row
+      data_index_coloumn[chosen_sensor] = 0;                    // reset coloumn
+      data_coloumn_max[chosen_sensor]   = false;                // reset max coloumn number to 0
+    
+    print_data();
+    // clear every data
+    for(int i=0; i<data_begin[1]; i++) {
+      for(int j=0; j<8; j++) {
+        for(int d=0; d<8; d++) {
+          data[chosen_sensor][i][j][d] = 0;
+        }
+      }
     }
 
-    // clear every data
-    memset(data, 0, sizeof(data));
+    print_data();
     
     send_via_int = false;         // clear the interrupt flag
     exec_int_can = true;          // allow interrupt to be exec
