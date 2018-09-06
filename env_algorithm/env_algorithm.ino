@@ -9,6 +9,27 @@ TSL sensor_TSL;
 // Extra Includes 
 #include "global.h"
 
+void setup() {
+
+  // setup serial 
+  serial_debug.begin(serial_debug_speed);
+
+  sensor_setup(sensor_L0.setup(), sensor_L0.name);      // setup L0
+  sensor_setup(sensor_TSL.setup(), sensor_TSL.name);    // setup TSL2561
+
+} // end of setup
+
+void loop() {
+
+  sensor_read(sensor_L0.read(), sensor_L0.name);
+  sensor_L0.print_data();
+
+  sensor_read(sensor_TSL.read(), sensor_TSL.name);
+  sensor_TSL.print_data();
+
+  delay(1000);
+} // end of loop
+
 /*
  *  Function:     void sensor_setup(bool status, String name)
  *  Description:  helper function for setting up sensors
@@ -60,24 +81,3 @@ void sensor_read(bool status, String sensor_name) {
   }
 
 } // end of sensor_read
-
-void setup() {
-
-  // setup serial 
-  serial_debug.begin(serial_debug_speed);
-
-  sensor_setup(sensor_L0.setup(), sensor_L0.name);      // setup L0
-  sensor_setup(sensor_TSL.setup(), sensor_TSL.name);    // setup TSL2561
-
-} // end of setup
-
-void loop() {
-
-  sensor_read(sensor_L0.read(), sensor_L0.name);
-  sensor_L0.print_data();
-
-  sensor_read(sensor_TSL.read(), sensor_TSL.name);
-  sensor_TSL.print_data();
-
-  delay(1000);
-} // end of loop
