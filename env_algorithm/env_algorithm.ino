@@ -1,10 +1,14 @@
 // Sensor Includes
 #include "L0.h"
 #include "TSL.h"
+#include "BME.h"
+#include "ANEMOMETER.h"
 
 // Sensor objects
 L0 sensor_L0;
 TSL sensor_TSL;
+BME sensor_BME;
+ANEMOMETER sensor_ANEMOMETER;
 
 // Extra Includes 
 #include "global.h"
@@ -14,8 +18,11 @@ void setup() {
   // setup serial 
   serial_debug.begin(serial_debug_speed);
 
-  sensor_setup(sensor_L0.setup(), sensor_L0.name);      // setup L0
-  sensor_setup(sensor_TSL.setup(), sensor_TSL.name);    // setup TSL2561
+  // setup all the sensors
+  sensor_setup(sensor_L0.setup(), sensor_L0.name);                    // setup L0
+  sensor_setup(sensor_TSL.setup(), sensor_TSL.name);                  // setup TSL2561
+  sensor_setup(sensor_BME.setup(), sensor_BME.name);                  // setup BME280
+  sensor_setup(sensor_ANEMOMETER.setup(), sensor_ANEMOMETER.name);    // setup ANEMOMETER
 
 } // end of setup
 
@@ -26,6 +33,12 @@ void loop() {
 
   sensor_read(sensor_TSL.read(), sensor_TSL.name);
   sensor_TSL.print_data();
+
+  sensor_read(sensor_BME.read(), sensor_BME.name);
+  sensor_BME.print_data();
+
+  sensor_read(sensor_ANEMOMETER.read(), sensor_ANEMOMETER.name);
+  sensor_ANEMOMETER.print_data();
 
   delay(1000);
 } // end of loop

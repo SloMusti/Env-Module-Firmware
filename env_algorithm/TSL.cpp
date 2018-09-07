@@ -25,6 +25,7 @@ bool TSL::setup() {
     } else {
         return false;
     }
+    
 } // end of setup()
 
 /*
@@ -33,9 +34,9 @@ bool TSL::setup() {
  */
 bool TSL::read() {
 
-    if( read_visibility() == true &&
+    if( read_visibility()   == true &&
         read_fullspectrum() == true &&
-        read_infrared() == true           ) {
+        read_infrared()     == true        ) {
 
         return true;
     } else {

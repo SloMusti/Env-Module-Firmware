@@ -13,14 +13,13 @@ class L0
         // functions
         bool    setup();
         bool    read();
-        void    rint_data();
+        void    print_data();
 
         // variables
         
         // data
         uint8_t data[L0_num_of_variables][8][8];
         int     time_data[8][8];
-        bool    inited[L0_num_of_variables];
 
         // debug
         String  name = "L0";

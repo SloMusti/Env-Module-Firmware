@@ -19,7 +19,6 @@ class TSL
         // data
         uint8_t data[TSL2561_num_of_variables][8][8];
         int     time_data[8][8];
-        bool    inited[TSL2561_num_of_variables];
 
         // debug
         String name = "TSL2561";

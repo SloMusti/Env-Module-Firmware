@@ -1,5 +1,6 @@
 {
     "board": "TleraCorp:stm32l0:B-L072Z-LRWAN1",
     "configuration": "speed=32,opt=os",
-    "sketch": "env_algorithm.ino"
+    "sketch": "env_algorithm.ino",
+    "port": "/dev/ttyACM0"
 }

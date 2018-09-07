@@ -102,3 +102,12 @@ void print_debug(uint8_t data[][8][8],
 
     serial_debug.println();
 }
+
+/*
+ *  Function:       float mapf(...)
+ *  Description:    same as map but with floats
+ */
+float mapf(float x, float in_min, float in_max, float out_min, float out_max)
+{
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
