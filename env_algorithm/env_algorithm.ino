@@ -3,12 +3,18 @@
 #include "TSL.h"
 #include "BME.h"
 #include "ANEMOMETER.h"
+#include "RAIN.h"
+#include "CO2.h"
+#include "TDR.h"
 
 // Sensor objects
-L0 sensor_L0;
-TSL sensor_TSL;
-BME sensor_BME;
-ANEMOMETER sensor_ANEMOMETER;
+L0          sensor_L0;
+TSL         sensor_TSL;
+BME         sensor_BME;
+ANEMOMETER  sensor_ANEMOMETER;
+RAIN        sensor_RAIN;
+CO2         sensor_CO2;
+TDR         sensor_TDR;
 
 // Extra Includes 
 #include "global.h"
@@ -23,6 +29,9 @@ void setup() {
   sensor_setup(sensor_TSL.setup(), sensor_TSL.name);                  // setup TSL2561
   sensor_setup(sensor_BME.setup(), sensor_BME.name);                  // setup BME280
   sensor_setup(sensor_ANEMOMETER.setup(), sensor_ANEMOMETER.name);    // setup ANEMOMETER
+  sensor_setup(sensor_RAIN.setup(), sensor_RAIN.name);                // setup RAIN
+  sensor_setup(sensor_CO2.setup(), sensor_CO2.name);                  // setup CO2
+  sensor_setup(sensor_TDR.setup(), sensor_TDR.name);                  // setup TDR
 
 } // end of setup
 
@@ -39,6 +48,15 @@ void loop() {
 
   sensor_read(sensor_ANEMOMETER.read(), sensor_ANEMOMETER.name);
   sensor_ANEMOMETER.print_data();
+
+  sensor_read(sensor_RAIN.read(), sensor_RAIN.name);
+  sensor_RAIN.print_data();
+
+  sensor_read(sensor_CO2.read(), sensor_CO2.name);
+  sensor_CO2.print_data();
+
+  sensor_read(sensor_TDR.read(), sensor_TDR.name);
+  sensor_TDR.print_data();
 
   delay(1000);
 } // end of loop
@@ -60,7 +78,7 @@ void sensor_setup(bool status, String sensor_name) {
     #ifdef debug
       serial_debug.println(" not inited! CHECK WIRING! Stopping firmware...");
     #endif
-
+ 
     while(1);
   } else {
 
