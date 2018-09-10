@@ -16,6 +16,7 @@ class BME
         void print_data();
 
         // variables
+        int CAN_ID;
 
         // print_data
         uint8_t data[BME280_num_of_variables][8][8];

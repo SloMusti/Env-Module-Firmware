@@ -15,6 +15,7 @@ class TSL
         void    print_data();
 
         // variables
+        int CAN_ID;
 
         // data
         uint8_t data[TSL2561_num_of_variables][8][8];

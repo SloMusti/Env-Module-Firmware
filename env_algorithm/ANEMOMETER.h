@@ -14,6 +14,7 @@ class ANEMOMETER
         void print_data();
 
         // variables
+        int CAN_ID;
 
         // print_data
         uint8_t data[ANEMOMETER_num_of_variables][8][8];

@@ -16,7 +16,8 @@ class L0
         void    print_data();
 
         // variables
-        
+        int CAN_ID;
+
         // data
         uint8_t data[L0_num_of_variables][8][8];
         int     time_data[8][8];

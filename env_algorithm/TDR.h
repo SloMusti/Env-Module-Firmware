@@ -18,6 +18,7 @@ class TDR
         void    print_data();
 
         // variables
+        int CAN_ID;
 
         // data
         uint8_t data[TDR_num_of_variables][8][8];
