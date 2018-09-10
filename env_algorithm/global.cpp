@@ -13,14 +13,14 @@
  *      - bool* counter_col_overflow    - the counter coloumn overflown flag (set when we have filled all 64bits)
  *      - int value                     - the value we add to the data array
  */
-void update_16bit(uint8_t data[][8][8], 
-                  int time_data[8][8],
-                  int var_id, 
-                  int& col, 
-                  int& row, 
-                  bool& counter_col_overflow, 
-                  int number_of_variables,
-                  int value) {
+void update_16bit( byte data[][8][8], 
+                   byte time_data[8][8],
+                   int var_id, 
+                   int& col, 
+                   int& row, 
+                   bool& counter_col_overflow, 
+                   int number_of_variables,
+                   int value                     ) {
     
     // writing the data
     data[var_id][col][row + (row + 0)]  = lowByte(value);
@@ -63,8 +63,8 @@ void update_16bit(uint8_t data[][8][8],
  *      - int row                       - the current row counter
  *      - bool counter_col_overflow     - if we have filled all 64bit
  */
-void print_debug(uint8_t data[][8][8], 
-                 int time_data[8][8],
+void print_debug(byte data[][8][8], 
+                 byte time_data[8][8],
                  int number_of_variables,
                  int col,
                  int row,

@@ -18,8 +18,8 @@ class TSL
         int CAN_ID;
 
         // data
-        uint8_t data[TSL2561_num_of_variables][8][8];
-        int     time_data[8][8];
+        byte data[TSL2561_num_of_variables][8][8];
+        byte     time_data[8][8];
 
         // debug
         String name = "TSL2561";

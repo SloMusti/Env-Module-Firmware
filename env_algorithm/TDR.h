@@ -21,8 +21,8 @@ class TDR
         int CAN_ID;
 
         // data
-        uint8_t data[TDR_num_of_variables][8][8];
-        int     time_data[8][8];
+        byte data[TDR_num_of_variables][8][8];
+        byte     time_data[8][8];
 
         // debug
         String name = "TDR";

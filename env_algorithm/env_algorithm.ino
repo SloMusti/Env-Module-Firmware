@@ -21,6 +21,16 @@ RAIN        sensor_RAIN;
 CO2         sensor_CO2;
 TDR         sensor_TDR;
 
+int sensor_CAN_id[7] = {
+  sensor_L0.CAN_ID,
+  sensor_TSL.CAN_ID,
+  sensor_BME.CAN_ID,
+  sensor_ANEMOMETER.CAN_ID,
+  sensor_RAIN.CAN_ID,
+  sensor_CO2.CAN_ID,
+  sensor_TDR.CAN_ID
+};
+
 // Extra Includes 
 #include "global.h"
 
@@ -58,7 +68,7 @@ void setup() {
 
 void loop() {
 
-  device_read(sensor_L0.read(), sensor_L0.name);
+  /*device_read(sensor_L0.read(), sensor_L0.name);
   sensor_L0.print_data();
 
   device_read(sensor_TSL.read(), sensor_TSL.name);
@@ -79,7 +89,7 @@ void loop() {
   device_read(sensor_TDR.read(), sensor_TDR.name);
   sensor_TDR.print_data();
 
-  delay(1000);
+  delay(1000);*/
 } // end of loop
 
 /*

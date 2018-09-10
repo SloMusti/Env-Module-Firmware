@@ -19,8 +19,8 @@ class RAIN
         int CAN_ID;
 
         // data
-        uint8_t data[RAIN_num_of_variables][8][8];
-        int     time_data[8][8];
+        byte data[RAIN_num_of_variables][8][8];
+        byte     time_data[8][8];
 
         // debug
         String  name = "RAIN";

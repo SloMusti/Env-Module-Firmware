@@ -17,8 +17,8 @@ class ANEMOMETER
         int CAN_ID;
 
         // print_data
-        uint8_t data[ANEMOMETER_num_of_variables][8][8];
-        int time_data[8][8];
+        byte data[ANEMOMETER_num_of_variables][8][8];
+        byte time_data[8][8];
 
         // debug
         String name = "ANEMOMETER";
