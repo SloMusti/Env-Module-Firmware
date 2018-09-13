@@ -59,7 +59,7 @@ bool L0::exec_timer() {
     if(millis() - exec_timer_last >= exec_time) {
         
         if(read()) {
-
+            print_data();
             #ifdef debug
                 serial_debug.println("L0 (exec_timer) - executed read");
             #endif

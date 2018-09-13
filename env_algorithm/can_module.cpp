@@ -136,7 +136,7 @@ bool CAN_MODULE::send_data( byte data[][8][8],
                 if(send_data_status != CAN_OK) 
                     return false;
 
-                send_data_status = CAN_BUS.sendMsgBuf(CAN_MASTER_ID, 0, row, time_data[row-1]);
+                send_data_status = CAN_BUS.sendMsgBuf(CAN_MASTER_ID, 0, row, time_data[coloumn]);
                 if(send_data_status != CAN_OK) 
                     return false;
 
@@ -146,7 +146,7 @@ bool CAN_MODULE::send_data( byte data[][8][8],
                 if(send_data_status != CAN_OK) 
                     return false;
 
-                send_data_status = CAN_BUS.sendMsgBuf(CAN_MASTER_ID, 0, 8, time_data[row-1]);
+                send_data_status = CAN_BUS.sendMsgBuf(CAN_MASTER_ID, 0, 8, time_data[coloumn]);
                 if(send_data_status != CAN_OK) 
                     return false;
             

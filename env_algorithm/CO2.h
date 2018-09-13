@@ -16,9 +16,12 @@ class CO2
         bool    setup();
         bool    read();
         void    print_data();
+        bool    exec_timer();
 
         // variables
         int CAN_ID;
+        int exec_time                   = 60 * 1000;
+        unsigned long exec_timer_last   = 0;
 
         int     counter_col                 = 0;
         int     counter_row                 = 0;

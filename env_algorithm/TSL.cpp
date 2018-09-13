@@ -60,6 +60,31 @@ void TSL::print_data() {
 
 } // end of print_data()
 
+/*
+ *  Function:    TSL::exec_timer()
+ *  Description: execute read if the timer is right
+ */
+bool TSL::exec_timer() {
+
+    if(millis() - exec_timer_last >= exec_time) {
+        
+        if(read()) {
+            print_data();
+            #ifdef debug
+                serial_debug.println("TSL (exec_timer) - executed read");
+            #endif
+
+            exec_timer_last = millis();
+
+            return true;
+        }
+        return false;
+        
+    }
+
+    return false;
+} // end of exec_timer()
+
 /**************************************************************************************/
 
 /*

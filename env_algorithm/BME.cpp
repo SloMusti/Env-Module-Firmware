@@ -49,6 +49,31 @@ void BME::print_data() {
  
 } // end of print_data()
 
+/*
+ *  Function:    BME::exec_timer()
+ *  Description: execute read if the timer is right
+ */
+bool BME::exec_timer() {
+
+    if(millis() - exec_timer_last >= exec_time) {
+        
+        if(read()) {
+            print_data();
+            #ifdef debug
+                serial_debug.println("BME (exec_timer) - executed read");
+            #endif
+
+            exec_timer_last = millis();
+
+            return true;
+        }
+        return false;
+        
+    }
+
+    return false;
+} // end of exec_timer()
+
 /**************************************************************************************/
 
 /*

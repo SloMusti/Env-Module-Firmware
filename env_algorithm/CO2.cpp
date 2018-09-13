@@ -41,6 +41,31 @@ void CO2::print_data() {
 } // end of print_data()
 
 /*
+ *  Function:    CO2::exec_timer()
+ *  Description: execute read if the timer is right
+ */
+bool CO2::exec_timer() {
+
+    if(millis() - exec_timer_last >= exec_time) {
+        
+        if(read()) {
+            print_data();
+            #ifdef debug
+                serial_debug.println("CO2 (exec_timer) - executed read");
+            #endif
+
+            exec_timer_last = millis();
+
+            return true;
+        }
+        return false;
+        
+    }
+
+    return false;
+} // end of exec_timer()
+
+/*
  *  Function:       bool CO2:read_CO2()
  *  Description:    read the CO2 through serial
  */
