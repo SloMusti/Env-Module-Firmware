@@ -16,7 +16,7 @@ class ANEMOMETER
 
         // variables
         int CAN_ID;
-        int exec_time                   = 60 * 1000;
+        int exec_time                   = 30 * 1000;
         unsigned long exec_timer_last   = 0;
 
         int         counter_col                 = 0;
