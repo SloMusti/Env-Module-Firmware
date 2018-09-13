@@ -9,6 +9,7 @@ int                     current_rain_count          = 0;
  *  Description:    interrupt function for RAIN
  */
 void ISR_RAIN() {
+
     STM32L0.wakeup();
 
     #ifdef debug
@@ -20,8 +21,6 @@ void ISR_RAIN() {
         rain_contacttime = millis();
     }
 
-    // send via int false
-    //not my id true
 } // end of ISR_RAIN
 
 /*

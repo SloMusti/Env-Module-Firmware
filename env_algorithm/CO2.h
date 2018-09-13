@@ -20,6 +20,11 @@ class CO2
         // variables
         int CAN_ID;
 
+        int     counter_col                 = 0;
+        int     counter_row                 = 0;
+        bool    counter_col_overflow        = false;
+
+
         // data
         byte data[CO2_num_of_variables][8][8];
         byte     time_data[8][8];
@@ -34,10 +39,6 @@ class CO2
 
         // variables
         int     current_co2                 = 0;
-
-        int     counter_col                 = 0;
-        int     counter_row                 = 0;
-        bool    counter_col_overflow        = false;
 
         // id of values
         uint8_t id_co2                      = 0;

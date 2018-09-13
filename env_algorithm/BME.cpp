@@ -57,6 +57,9 @@ void BME::print_data() {
  */
 bool BME::read_pressure() {
 
+    // get bme280 sensor data
+    _BME280.readSensor();
+
     current_pressure = _BME280.getPressure_Pa();
 
     #ifdef debug
@@ -84,6 +87,9 @@ bool BME::read_pressure() {
  */
 bool BME::read_temperature() {
 
+    // get bme280 sensor data
+    _BME280.readSensor();
+
     current_temperature = _BME280.getTemperature_C();
 
     #ifdef debug
@@ -99,7 +105,7 @@ bool BME::read_temperature() {
                 counter_row,                    // row counter
                 counter_col_overflow,           // check if coloumn has overflow 
                 BME280_num_of_variables,       // number of variables
-                current_temperature);          // the value
+                current_temperature * 100);          // the value
 
     return true;
 
@@ -110,6 +116,9 @@ bool BME::read_temperature() {
  *  Description:    read the humidity data
  */
 bool BME::read_humidity() {
+
+    // get bme280 sensor data
+    _BME280.readSensor();
 
     current_humidity = _BME280.getHumidity_RH();
 
@@ -126,7 +135,7 @@ bool BME::read_humidity() {
                 counter_row,                    // row counter
                 counter_col_overflow,           // check if coloumn has overflow 
                 BME280_num_of_variables,       // number of variables
-                current_humidity);          // the value
+                current_humidity * 100);          // the value
 
     return true;
 } // end of read_humidity()

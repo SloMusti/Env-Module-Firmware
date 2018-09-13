@@ -50,6 +50,31 @@ void L0::print_data() {
 
 } // end of print_data()
 
+/*
+ *  Function:    L0::exec_timer()
+ *  Description: execute read if the timer is right
+ */
+bool L0::exec_timer() {
+
+    if(millis() - exec_timer_last >= exec_time) {
+        
+        if(read()) {
+
+            #ifdef debug
+                serial_debug.println("L0 (exec_timer) - executed read");
+            #endif
+
+            exec_timer_last = millis();
+
+            return true;
+        }
+        return false;
+        
+    }
+
+    return false;
+} // end of exec_timer()
+
 /**************************************************************************************/
 
 /*

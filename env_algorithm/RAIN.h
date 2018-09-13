@@ -18,6 +18,10 @@ class RAIN
         // variables
         int CAN_ID;
 
+        int         counter_col                 = 0;
+        int         counter_row                 = 0;
+        bool        counter_col_overflow        = false;
+
         // data
         byte data[RAIN_num_of_variables][8][8];
         byte     time_data[8][8];
@@ -32,11 +36,6 @@ class RAIN
 
         // variables 
         int         pin_rain                    = 5;
-
-        // counter
-        int         counter_col                 = 0;
-        int         counter_row                 = 0;
-        bool        counter_col_overflow        = false;
 
         // id of values
         uint8_t     id_raincount                = 0;

@@ -21,24 +21,24 @@ RAIN        sensor_RAIN;
 CO2         sensor_CO2;
 TDR         sensor_TDR;
 
-int sensor_CAN_id[7] = {
-  sensor_L0.CAN_ID,
-  sensor_TSL.CAN_ID,
-  sensor_BME.CAN_ID,
-  sensor_ANEMOMETER.CAN_ID,
-  sensor_RAIN.CAN_ID,
-  sensor_CO2.CAN_ID,
-  sensor_TDR.CAN_ID
-};
-
 // Extra Includes 
 #include "global.h"
+
+// helping variables
+bool status_sent = false;
+
+void sleep_devices() {
+
+  //module_CAN.setMode(MCP_SLEEP);
+  // STM32L0
+  STM32L0.stop(10 * 1000);
+
+}
 
 void setup() {
 
   // setup serial 
   serial_debug.begin(serial_debug_speed);
-
   // setup all modules
   device_setup(module_CAN.setup(), module_CAN.name);
 
@@ -67,8 +67,8 @@ void setup() {
 } // end of setup
 
 void loop() {
-
-  /*device_read(sensor_L0.read(), sensor_L0.name);
+/*
+  device_read(sensor_L0.read(), sensor_L0.name);
   sensor_L0.print_data();
 
   device_read(sensor_TSL.read(), sensor_TSL.name);
@@ -89,7 +89,109 @@ void loop() {
   device_read(sensor_TDR.read(), sensor_TDR.name);
   sensor_TDR.print_data();
 
-  delay(1000);*/
+  delay(1000);
+*/
+  // EXEC sending
+  if(module_CAN.return_local_send_data_int()) {
+
+    module_CAN.execute_int_can = false;
+
+    #ifdef debug
+      serial_debug.print("loop() - CAN_RXID chosen (ID): ");
+      serial_debug.println(module_CAN.return_CAN_RXID(), HEX);
+    #endif
+
+    switch(module_CAN.get_sensor_CAN_id(module_CAN.return_CAN_RXID())) {
+
+      // L0
+      case 1:
+        // read sensor
+        device_read(sensor_L0.read(), sensor_L0.name);
+        sensor_L0.print_data();
+
+        // send data
+        status_sent = module_CAN.send_data(
+          sensor_L0.data,
+          sensor_L0.time_data,
+          NUM_IN_ARRAY(sensor_L0.data),
+          sensor_L0.counter_col,
+          sensor_L0.counter_row,
+          sensor_L0.counter_col_overflow
+        );
+
+        if(status_sent) { 
+
+          #ifdef debug
+            serial_debug.println("loop() - CAN message sent, clearing...");
+          #endif
+
+          // clear data
+          clear_data(
+            sensor_L0.data,
+            sensor_L0.time_data,
+            sensor_L0.counter_col,
+            sensor_L0.counter_row,
+            sensor_L0.counter_col_overflow
+          );
+
+        } else {
+          #ifdef debug
+            serial_debug.println("loop() - CAN message ERROR, not clearing...");
+          #endif
+        }
+
+        break;
+
+      // TSL
+      case 2:
+
+        break;
+
+      // BME
+      case 3:
+
+        break;
+
+      // ANEMOMETER
+      case 4:
+
+        break;
+
+      // RAIN
+      case 5:
+
+        break;
+
+      // CO2
+      case 6:
+
+        break;
+
+      // TDR
+      case 7:
+
+        break;
+    }
+
+    module_CAN.execute_int_can = true;
+    module_CAN.set_local_send_data_int(false);
+
+  } else {
+    if(module_CAN.return_local_send_data_int() == false && module_CAN.execute_int_can == false) {
+
+      // sleep devices
+      sleep_devices();
+
+      if(module_CAN.return_local_send_data_int() == false && module_CAN.execute_int_can == false) {
+        sensor_L0.exec_timer();
+      } // end of if
+    } // end of if
+  } // end of if
+
+
+
+
+
 } // end of loop
 
 /*

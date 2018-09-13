@@ -103,6 +103,21 @@ void print_debug(byte data[][8][8],
     serial_debug.println();
 }
 
+void clear_data( byte data[][8][8], 
+                   byte time_data[8][8],
+                   int& col, 
+                   int& row, 
+                   bool& counter_col_overflow      ) {
+
+    memset(data, 0, sizeof(data));
+    memset(time_data, 0, sizeof(time_data));
+
+    col = 0;
+    row = 0;
+    counter_col_overflow = false;
+
+}
+
 /*
  *  Function:       float mapf(...)
  *  Description:    same as map but with floats

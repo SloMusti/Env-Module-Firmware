@@ -20,6 +20,11 @@ class TDR
         // variables
         int CAN_ID;
 
+        int         counter_col                 = 0;
+        int         counter_row                 = 0;
+        bool        counter_col_overflow        = false;
+
+
         // data
         byte data[TDR_num_of_variables][8][8];
         byte     time_data[8][8];
@@ -38,10 +43,6 @@ class TDR
         int         current_soil_perm           = 0;
         int         current_soil_elec           = 0;
         int         current_other_data          = 0;
-
-        int         counter_col                 = 0;
-        int         counter_row                 = 0;
-        bool        counter_col_overflow        = false;
 
         // id of values
         uint8_t     id_vol_w_content            = 0;

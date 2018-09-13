@@ -16,6 +16,10 @@ class ANEMOMETER
         // variables
         int CAN_ID;
 
+        int         counter_col                 = 0;
+        int         counter_row                 = 0;
+        bool        counter_col_overflow        = false;
+
         // print_data
         byte data[ANEMOMETER_num_of_variables][8][8];
         byte time_data[8][8];
@@ -31,10 +35,6 @@ class ANEMOMETER
         // variables
         float current_windspeed                 = 0;
         int analog_pin                          = A0;
-
-        int         counter_col                 = 0;
-        int         counter_row                 = 0;
-        bool        counter_col_overflow        = false;
 
         // id of value
         uint8_t id_windspeed                    = 0;

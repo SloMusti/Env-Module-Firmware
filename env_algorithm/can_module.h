@@ -16,8 +16,6 @@
 #define CAN_SPEED CAN_125KBPS       // CAN_125KBPS
 #define CAN_MHZ   MCP_20MHZ          // MCP_16MHZ, MCP_20MHZ
 
-
-
 class CAN_MODULE
 {
     public:
@@ -25,8 +23,8 @@ class CAN_MODULE
         // functions
         bool setup();
 
-        void set_sensor_CAN_id(int& ID, int num);
-        int  get_sensor_CAN_id(int num);
+        int set_sensor_CAN_id(int& ID, int num);
+        int  get_sensor_CAN_id(int ID);
 
         bool send_data( byte data[][8][8],
                         byte time_data[8][8],
@@ -41,12 +39,14 @@ class CAN_MODULE
         int CAN_ID              = 0x100;
 
         bool execute_int_can    = true;
-        bool send_data_int      = false;
-        
-        long unsigned int CAN_RXID;
 
         // debug
         String name = "CAN";
+
+        bool return_local_send_data_int();
+        void set_local_send_data_int(bool status);
+        long unsigned int return_CAN_RXID();
+        void set_CAN_RXID(long unsigned int ID);
 
     private:
         
