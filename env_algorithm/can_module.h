@@ -26,6 +26,8 @@ class CAN_MODULE
         int set_sensor_CAN_id(int& ID, int num);
         int  get_sensor_CAN_id(int ID);
 
+        void append_available_sensor(unsigned char ID);
+
         bool send_data( byte data[][8][8],
                         byte time_data[8][8],
                         int number_of_variables,

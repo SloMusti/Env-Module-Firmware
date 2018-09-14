@@ -7,6 +7,25 @@ MCP_CAN CAN_BUS(CAN_PIN_NSS); // can bus object
 
 int local_send_data_int = false;
 long unsigned int CAN_RXID = 0;
+unsigned char len = 0;
+unsigned char rxBuf[8];
+
+unsigned char available_sensors[8];
+unsigned char available_sensors_counter = 0;
+byte send_stat = 0;
+
+void CAN_MODULE::append_available_sensor(unsigned char ID) {
+
+    available_sensors[available_sensors_counter] = ID;
+    available_sensors_counter++;
+
+    #ifdef debug
+        for(int i=0; i<NUM_IN_ARRAY(available_sensors); i++) {
+            serial_debug.print("ID: ");serial_debug.println(available_sensors[i]);
+        }
+    #endif
+    
+}
 
 bool CAN_MODULE::return_local_send_data_int() {
     return local_send_data_int;
@@ -48,7 +67,7 @@ void CAN_MODULE::ISR_CAN() {
         #endif
 
         // read the id and to clear the interrupt flag
-        CAN_BUS.readMsgBuf(&CAN_RXID,NULL,NULL);
+        CAN_BUS.readMsgBuf(&CAN_RXID,&len,rxBuf);
     
         #ifdef debug
             serial_debug.print("can_module (ISR_CAN) - RXID: 0x");
@@ -59,6 +78,18 @@ void CAN_MODULE::ISR_CAN() {
 
         if((CAN_ID & CAN_RXID) == int(CAN_ID)) {
             local_send_data_int   = true;
+            if(rxBuf[0] == 0x02) {
+                // we have to send back avaible sensors
+                if(CAN_BUS.sendMsgBuf(CAN_MASTER_ID, 0, 8, available_sensors) == CAN_OK) {
+                    #ifdef debug
+                        serial_debug.println("ISR_CAN - send back available_sensors array");
+                    #endif
+                } else {
+                    #ifdef debug
+                        serial_debug.println("ISR_CAN - couldn't send back data");
+                    #endif
+                }
+            }
         } else {
             local_send_data_int   = false;
             CAN_RXID        = 0;

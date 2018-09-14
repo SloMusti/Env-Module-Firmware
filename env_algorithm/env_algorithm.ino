@@ -40,33 +40,30 @@ void sleep_devices() {
 }
 
 void setup() {
-
   // setup serial 
   serial_debug.begin(serial_debug_speed);
+  serial_debug.println("test");
   // setup all modules
-  device_setup(module_CAN.setup(), module_CAN.name);
+  device_setup(module_CAN.setup(), module_CAN.name, 0);
+
+  
+  module_CAN.set_sensor_CAN_id(sensor_L0.CAN_ID, 1);                  // set the CAN ID to 1 (0x101)
+  module_CAN.set_sensor_CAN_id(sensor_TSL.CAN_ID, 2);                 // set the CAN ID to 2 (0x102)
+  module_CAN.set_sensor_CAN_id(sensor_BME.CAN_ID, 3);                 // set the CAN ID to 3 (0x103)
+  module_CAN.set_sensor_CAN_id(sensor_ANEMOMETER.CAN_ID, 4);          // set the CAN ID to 4 (0x104)
+  module_CAN.set_sensor_CAN_id(sensor_RAIN.CAN_ID, 5);                // set the CAN ID to 5 (0x105)
+  module_CAN.set_sensor_CAN_id(sensor_CO2.CAN_ID, 6);                 // set the CAN ID to 6 (0x106)
+  module_CAN.set_sensor_CAN_id(sensor_TDR.CAN_ID, 7);                 // set the CAN ID to 7 (0x107)
+
 
   // setup all the sensors
-  device_setup(sensor_L0.setup(), sensor_L0.name);                    // setup L0
-  module_CAN.set_sensor_CAN_id(sensor_L0.CAN_ID, 1);                  // set the CAN ID to 1 (0x101)
-
-  device_setup(sensor_TSL.setup(), sensor_TSL.name);                  // setup TSL2561
-  module_CAN.set_sensor_CAN_id(sensor_TSL.CAN_ID, 2);                 // set the CAN ID to 2 (0x102)
-
-  device_setup(sensor_BME.setup(), sensor_BME.name);                  // setup BME280
-  module_CAN.set_sensor_CAN_id(sensor_BME.CAN_ID, 3);                 // set the CAN ID to 3 (0x103)
-
-  device_setup(sensor_ANEMOMETER.setup(), sensor_ANEMOMETER.name);    // setup ANEMOMETER
-  module_CAN.set_sensor_CAN_id(sensor_ANEMOMETER.CAN_ID, 4);          // set the CAN ID to 4 (0x104)
-
-  device_setup(sensor_RAIN.setup(), sensor_RAIN.name);                // setup RAIN
-  module_CAN.set_sensor_CAN_id(sensor_RAIN.CAN_ID, 5);                // set the CAN ID to 5 (0x105)
-
-  device_setup(sensor_CO2.setup(), sensor_CO2.name);                  // setup CO2
-  module_CAN.set_sensor_CAN_id(sensor_CO2.CAN_ID, 6);                 // set the CAN ID to 6 (0x106)
-
-  device_setup(sensor_TDR.setup(), sensor_TDR.name);                  // setup TDR
-  module_CAN.set_sensor_CAN_id(sensor_TDR.CAN_ID, 7);                 // set the CAN ID to 7 (0x107)
+  device_setup(sensor_L0.setup(), sensor_L0.name, module_CAN.get_sensor_CAN_id(sensor_L0.CAN_ID));                    // setup L0
+  device_setup(sensor_TSL.setup(), sensor_TSL.name, module_CAN.get_sensor_CAN_id(sensor_TSL.CAN_ID));                  // setup TSL2561
+  device_setup(sensor_BME.setup(), sensor_BME.name, module_CAN.get_sensor_CAN_id(sensor_BME.CAN_ID));                  // setup BME280
+  device_setup(sensor_ANEMOMETER.setup(), sensor_ANEMOMETER.name, module_CAN.get_sensor_CAN_id(sensor_ANEMOMETER.CAN_ID));    // setup ANEMOMETER
+  device_setup(sensor_RAIN.setup(), sensor_RAIN.name, module_CAN.get_sensor_CAN_id(sensor_RAIN.CAN_ID));                // setup RAIN
+  device_setup(sensor_CO2.setup(), sensor_CO2.name, module_CAN.get_sensor_CAN_id(sensor_CO2.CAN_ID));                  // setup CO2
+  device_setup(sensor_TDR.setup(), sensor_TDR.name, module_CAN.get_sensor_CAN_id(sensor_TDR.CAN_ID));                  // setup TDR
 
 } // end of setup
 
@@ -350,7 +347,6 @@ void loop() {
           #endif
         }
         break;
-        break;
     
     
     }
@@ -383,7 +379,7 @@ void loop() {
  *  Function:     void device_setup(bool status, String name)
  *  Description:  helper function for setting up device
  */
-void device_setup(bool status, String device_name) {
+void device_setup(bool status, String device_name, int ID) {
 
   #ifdef debug
       serial_debug.print("device_setup() - device ");
@@ -394,15 +390,19 @@ void device_setup(bool status, String device_name) {
   if(!status) {
 
     #ifdef debug
-      serial_debug.println(" not inited! CHECK WIRING! Stopping firmware...");
+      serial_debug.println(" not inited! CHECK WIRING! ");
     #endif
- 
-    while(1);
+
   } else {
 
     #ifdef debug
       serial_debug.println(" inited!");
     #endif
+
+    // append it to the array of all inited
+    if(ID != 0)
+      module_CAN.append_available_sensor((unsigned char)(ID));
+
 
   }
 } // end of device_setup
