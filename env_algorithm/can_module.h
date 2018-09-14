@@ -14,7 +14,7 @@
 #define CAN_MASTER_ID 0x001
 
 #define CAN_SPEED CAN_125KBPS       // CAN_125KBPS
-#define CAN_MHZ   MCP_20MHZ          // MCP_16MHZ, MCP_20MHZ
+#define CAN_MHZ   MCP_16MHZ          // MCP_16MHZ, MCP_20MHZ
 
 class CAN_MODULE
 {

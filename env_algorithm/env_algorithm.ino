@@ -34,7 +34,7 @@ void sleep_devices() {
   #endif
 
   //module_CAN.setMode(MCP_SLEEP);
-  // STM32L0
+  // STM32L0`
   STM32L0.stop(10 * 1000);
 
 }
@@ -42,7 +42,6 @@ void sleep_devices() {
 void setup() {
   // setup serial 
   serial_debug.begin(serial_debug_speed);
-  serial_debug.println("test");
   // setup all modules
   device_setup(module_CAN.setup(), module_CAN.name, 0);
 
